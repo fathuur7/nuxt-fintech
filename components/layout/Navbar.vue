@@ -61,10 +61,9 @@
               <div class="relative">
                 <img 
                   :src="getUserPicture()" 
-                  :alt="user?.name || 'User'"
+                  :alt="user?.name"
                   class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-100"
                   @error="handleImageError"
-                  loading="lazy"
                 />
                 <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
               </div>
