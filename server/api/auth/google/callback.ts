@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken'
-import { connectDB } from '../../utils/mongoose'
-import { User } from '../../models/User'
-import {UserType} from '../../types/UserType'
+import { connectDB } from '../../../utils/mongoose'
+import { User } from '../../../models/User'
+import {UserType} from '../../../types/UserType'
 
 export default defineEventHandler(async (event) => {
   const code = getQuery(event).code as string
@@ -29,6 +29,9 @@ export default defineEventHandler(async (event) => {
       Authorization: `Bearer ${accessToken}`
     }
   })
+  
+
+  console.log('User Info:', userInfo)
 
   // 3. Connect to DB
   await connectDB()
@@ -50,7 +53,15 @@ export default defineEventHandler(async (event) => {
   })
 
   // 6. Set Cookie
-  setCookie(event, 'token', token, { httpOnly: true, path: '/' })
+  // In your OAuth callback
+  setCookie(event, 'token', token, {
+    httpOnly: false, // Allow client-side access
+    path: '/',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 60
+  })
+
 
   return sendRedirect(event, '/dashboard')
 })

@@ -1,17 +1,30 @@
+
 import mongoose from 'mongoose'
-const { Schema, model, models } = mongoose
 
-
-const UserSchema = new Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  picture: String,
-
-  // Fintech fields
-  phone: { type: String },                      // no HP pengguna
-  balance: { type: Number, default: 0 },        // saldo
-  verified: { type: Boolean, default: false },  // verifikasi KYC
-  createdAt: { type: Date, default: Date.now }
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  picture: {
+    type: String,
+    required: true
+  },
+  balance: {
+    type: Number,
+    default: 0
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  }
+}, {
+  timestamps: true
 })
 
-export const User = models.User || model('User', UserSchema)
+export const User = mongoose.models.User || mongoose.model('User', userSchema)

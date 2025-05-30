@@ -20,11 +20,13 @@ export default defineNuxtConfig({
     jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'your-refresh-secret',
     dbUrl: process.env.DATABASE_URL,
 
-     mongoUri: process.env.MONGODB_URI,
+    mongoUri: process.env.MONGODB_URI,
     
     // Google OAuth Config
     googleClientId: process.env.GOOGLE_CLIENT_ID,
     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    googleRedirectUri: process.env.GOOGLE_REDIRECT_URI,
+
     
     // Payment Gateway Config
     midtransServerKey: process.env.MIDTRANS_SERVER_KEY,
@@ -68,6 +70,7 @@ export default defineNuxtConfig({
 
   // CSS framework
   // css: ['~/assets/css/main.css'],
+  modules: ['@nuxtjs/tailwindcss'],
 
   // Build configuration
   build: {
