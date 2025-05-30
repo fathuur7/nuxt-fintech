@@ -19,6 +19,8 @@ export default defineNuxtConfig({
     jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
     jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'your-refresh-secret',
     dbUrl: process.env.DATABASE_URL,
+
+     mongoUri: process.env.MONGODB_URI,
     
     // Google OAuth Config
     googleClientId: process.env.GOOGLE_CLIENT_ID,
@@ -46,7 +48,7 @@ export default defineNuxtConfig({
 
   // Only client-side plugins
   plugins: [
-    { src: '~/plugins/socket.client.ts', mode: 'client' }
+    // { src: '~/plugins/socket.client.ts', mode: 'client' }
   ],
 
   // Route rules
@@ -69,6 +71,6 @@ export default defineNuxtConfig({
 
   // Build configuration
   build: {
-    transpile: ['socket.io-client']
+    // transpile: ['socket.io-client']
   }
 })
