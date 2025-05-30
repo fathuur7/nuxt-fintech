@@ -6,6 +6,7 @@ definePageMeta({
 
 <template>
   <layoutNavbar />
+  <pagesHomeHeroSection />
 </template>
 
 <script>
