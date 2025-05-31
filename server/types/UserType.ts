@@ -3,4 +3,7 @@ export interface UserType {
   name: string
   email: string
   picture?: string
+  role?: 'admin' | 'user'
+  balance?: number
+  isActive?: boolean
 }

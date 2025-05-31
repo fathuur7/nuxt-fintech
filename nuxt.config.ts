@@ -15,6 +15,9 @@ export default defineNuxtConfig({
 
   // Runtime configuration
   runtimeConfig: {
+    // admin
+    arrayEmailAdmin: process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [''],
+
     // Server-side environment variables
     jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
     jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'your-refresh-secret',
@@ -44,7 +47,10 @@ export default defineNuxtConfig({
       // Client-side accessible
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
       wsUrl: process.env.NUXT_PUBLIC_WS_URL || 'ws://localhost:3000',
-      googleClientId: process.env.GOOGLE_CLIENT_ID
+      googleClientId: process.env.GOOGLE_CLIENT_ID,
+      appDomain: 'localhost:3000',
+      adminDomain: 'localhost:3001',
+      mainDomain: 'localhost:3000'
     }
   },
 

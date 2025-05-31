@@ -1,15 +1,14 @@
-<script setup>
-definePageMeta({
-  middleware: 'auth'
-})
-</script>
-
 <template>
   <layoutNavbar />
   <pagesHomeHeroSection />
 </template>
 
 <script>
+// if role is admin, show admin dashboard
+definePageMeta({
+  middleware: 'auth'
+})
+
 useHead({
   title: 'Dashboard',
   meta: [

@@ -55,6 +55,8 @@ export default defineEventHandler(async (event) => {
         name: user.name,
         email: user.email,
         picture: user.picture,
+        role: user.role,
+        isActive: user.isActive,
         balance: user.balance || 0,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt

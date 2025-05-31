@@ -141,6 +141,16 @@ definePageMeta({
   layout: false,
   auth: false
 })
+// use seo 
+useHead({
+  title: 'Login - FinanceFlow',
+  meta: [
+    { name: 'description', content: 'Login to FinanceFlow to manage your finances securely and efficiently.' },
+    { name: 'keywords', content: 'finance, login, secure, financial management' },
+    { name: 'author', content: 'FinanceFlow Team' }
+  ]
+})
+
 </script>
 
 <style>

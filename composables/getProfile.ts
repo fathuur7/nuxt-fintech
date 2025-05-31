@@ -6,6 +6,8 @@ type UserType = {
     email: string
     picture: string
     balance: number
+    role: string
+    isActive: boolean
   }
 }
 
