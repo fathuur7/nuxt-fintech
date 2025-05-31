@@ -1,9 +1,12 @@
 type UserType = {
-  id: number
-  name: string
-  email: string
-  picture: string
-  balance: number
+  success: boolean
+  data: {
+    id: string
+    name: string
+    email: string
+    picture: string
+    balance: number
+  }
 }
 
 export const useProfile = () => {

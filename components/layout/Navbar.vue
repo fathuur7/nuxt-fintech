@@ -52,9 +52,24 @@
             <span class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
           </button>
 
-          <!-- User Profile Dropdown -->
+          <!-- User Profile Dropdown with Skeleton -->
           <div class="relative" ref="profileDropdown">
+            <!-- Loading Skeleton -->
+            <div v-if="isLoading" class="flex items-center space-x-3 p-2">
+              <div class="relative">
+                <div class="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-gray-300 rounded-full animate-pulse"></div>
+              </div>
+              <div class="hidden sm:block space-y-1">
+                <div class="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                <div class="h-3 bg-gray-200 rounded w-16 animate-pulse"></div>
+              </div>
+              <div class="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+
+            <!-- Actual User Profile -->
             <button 
+              v-else
               @click="toggleDropdown"
               class="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-xl transition-all duration-200"
             >
@@ -92,7 +107,7 @@
               leave-to-class="opacity-0 scale-95"
             >
               <div 
-                v-show="isDropdownOpen"
+                v-show="isDropdownOpen && !isLoading"
                 class="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50"
               >
                 <div class="px-4 py-3 border-b border-gray-100">
@@ -160,7 +175,7 @@
       >
         <div v-show="isMobileMenuOpen" class="md:hidden border-t border-gray-200/50 px-6 py-4 space-y-3">
           <NuxtLink 
-            to="/Loan" 
+            to="/loan" 
             class="block py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors duration-200"
             @click="closeMobileMenu"
           >
@@ -208,11 +223,14 @@ interface User {
 const user = ref<User | null>(null)
 const isDropdownOpen = ref(false)
 const isMobileMenuOpen = ref(false)
+const isLoading = ref(true) // Added loading state
 const profileDropdown = ref<HTMLElement>()
 
 // Fetch user data from JWT token
 const fetchUserData = async () => {
   try {
+    isLoading.value = true // Start loading
+    
     // Get token from cookie
     const token = useCookie('token')
     
@@ -241,11 +259,18 @@ const fetchUserData = async () => {
     console.error('Error fetching user data:', error)
     // If token is invalid, redirect to login
     await navigateTo('auth/login')
+  } finally {
+    // Add minimum loading time for better UX
+    setTimeout(() => {
+      isLoading.value = false
+    }, 500)
   }
 }
 
 // Toggle functions
 const toggleDropdown = () => {
+  if (isLoading.value) return // Prevent interaction while loading
+  
   isDropdownOpen.value = !isDropdownOpen.value
   if (isMobileMenuOpen.value) {
     isMobileMenuOpen.value = false
@@ -378,5 +403,19 @@ onUnmounted(() => {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+/* Enhanced pulse animation for skeleton */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 </style>
