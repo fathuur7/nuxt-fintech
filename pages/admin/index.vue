@@ -180,6 +180,7 @@ interface User {
   role: 'admin' | 'user';
   balance: number;
   status: 'online' | 'idle' | 'offline';
+  isActive: boolean; 
   picture: string;
   createdAt: string;
   updatedAt: string;
@@ -251,7 +252,18 @@ const fetchUsers = async () => {
   try {
     loading.value = true;
     const { data } = await $fetch('/api/user/getUser');
-    users.value = data || [];
+    users.value = (data || []).map((u: any) => ({
+      _id: String(u._id),
+      name: String(u.name),
+      email: String(u.email),
+      role: u.role === 'admin' ? 'admin' : 'user',
+      balance: Number(u.balance),
+      status: u.status === 'online' || u.status === 'idle' || u.status === 'offline' ? u.status : 'offline',
+      isActive: Boolean(u.isActive),
+      picture: String(u.picture),
+      createdAt: String(u.createdAt),
+      updatedAt: String(u.updatedAt)
+    })) as User[];
     lastUpdate.value = new Date().toLocaleTimeString('id-ID');
     console.log('📊 Fetched users:', users.value.length);
   } catch (error) {
