@@ -58,6 +58,7 @@ export default defineEventHandler(async (event) => {
         role: user.role,
         isActive: user.isActive,
         balance: user.balance || 0,
+        status: user.status, 
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
       }

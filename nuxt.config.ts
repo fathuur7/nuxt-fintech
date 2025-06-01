@@ -46,7 +46,6 @@ export default defineNuxtConfig({
     public: {
       // Client-side accessible
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
-      wsUrl: process.env.NUXT_PUBLIC_WS_URL || 'ws://localhost:3000',
       googleClientId: process.env.GOOGLE_CLIENT_ID,
       appDomain: 'localhost:3000',
       adminDomain: 'localhost:3001',
@@ -54,9 +53,9 @@ export default defineNuxtConfig({
     }
   },
 
-  // Only client-side plugins
   plugins: [
-    // { src: '~/plugins/socket.client.ts', mode: 'client' }
+    // '~/server/plugins/socket.ts' ,
+    '~/plugins/socket.client.ts'
   ],
 
   // Route rules
@@ -80,6 +79,6 @@ export default defineNuxtConfig({
 
   // Build configuration
   build: {
-    // transpile: ['socket.io-client']
+    transpile: ['socket.io-client']
   }
 })

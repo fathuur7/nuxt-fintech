@@ -1,20 +1,16 @@
 import mongoose from 'mongoose'
-
-let isConnected = false
+import { getConfig } from './config'
 
 export const connectDB = async () => {
-  const config = useRuntimeConfig()
-  const MONGODB_URI = config.mongoUri || ''
-
-  console.log('🔍 Connecting to:', MONGODB_URI)
-
-  if (isConnected || !MONGODB_URI) return
-
   try {
-    await mongoose.connect(MONGODB_URI)
-    isConnected = true
-    console.log('✅ MongoDB connected')
-  } catch (err) {
-    console.error('MongoDB connection error:', err)
+    const config = getConfig()
+    if (!config.mongodbUri) {
+      throw new Error('MongoDB URI is not defined in configuration')
+    }
+    await mongoose.connect(config.mongodbUri)
+    console.log('✅ MongoDB connected successfully')
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error)
+    process.exit(1)
   }
 }

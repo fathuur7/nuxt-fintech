@@ -6,4 +6,9 @@ export default defineNuxtRouteMiddleware((to, from) => {
   if (!token) {
     return navigateTo('/auth/login');
   }
+  // Jika role tidak sesuai, jika user masuk ke http:localhost:3001/admin maka akan diarahkan ke halaman admin
+  if (to.path.startsWith('/admin') && role !== 'admin') {
+    console.log(role)
+    return navigateTo('/'); // arahkan ke halaman utama jika bukan admin
+  }
 });

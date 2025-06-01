@@ -68,6 +68,15 @@ export default defineEventHandler(async (event) => {
       domain: process.env.NODE_ENV === 'production' ? '.yourdomain.com' : undefined
     })
 
+    setCookie(event, 'role', user.role, {
+      httpOnly: false,
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60,
+      domain: process.env.NODE_ENV === 'production' ? '.yourdomain.com' : undefined
+    })
+
     // 8. Role-based redirect to different domains/subdomains
     let redirectUrl: string
     if (isAdmin) {
