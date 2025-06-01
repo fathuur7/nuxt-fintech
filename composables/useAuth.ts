@@ -68,11 +68,11 @@ export function useAuth() {
       console.log('✅ User logged out successfully')
       
       // Redirect to login
-      await navigateTo('/login')
+      await navigateTo('auth/login')
     } catch (error) {
       console.error('❌ Logout error:', error)
       // Even if logout fails, redirect to login page
-      await navigateTo('/login')
+      await navigateTo('auth/login')
     }
   }
 

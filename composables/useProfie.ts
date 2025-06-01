@@ -1,15 +1,5 @@
 import { ref } from 'vue'
-
-// Types
-interface User {
-  id: string // ← Tambahkan id field
-  name: string
-  email: string
-  picture: string
-  balance?: number
-  role: 'admin' | 'user'
-  isActive: boolean
-}
+import type { User } from '~/types/user'
 
 export const useProfile = () => {
   const user = ref<User | null>(null)
@@ -41,7 +31,7 @@ export const useProfile = () => {
       if (response.success && response.data) {
         user.value = response.data
         console.log('User data set:', user.value)
-        console.log('User ID:', user.value.id) // ← Log user ID untuk debugging
+        console.log('User ID (_id):', user.value._id) // ← Fixed: Use _id instead of id
       } else {
         console.error('Invalid response structure:', response)
       }
@@ -62,8 +52,8 @@ export const useProfile = () => {
     try {
       // Set user offline before logging out
       const { $socket } = useNuxtApp()
-      if (user.value?.id) {
-        $socket.setUserOffline(user.value.id)
+      if (user.value?._id) { // ← Fixed: Use _id instead of id
+        $socket.setUserOffline(user.value._id)
       }
       
       // Clear token cookie
@@ -89,7 +79,12 @@ export const useProfile = () => {
 
   // Helper function to get user ID
   const getUserId = (): string | null => {
-    return user.value?.id || null
+    return user.value?._id || null // ← Fixed: Use _id instead of id
+  }
+
+  // Initialize user data on composable creation (only on client)
+  if (process.client) {
+    fetchUserData()
   }
 
   return {
@@ -97,6 +92,6 @@ export const useProfile = () => {
     isLoading: readonly(isLoading),
     fetchUserData,
     logout,
-    getUserId // ← Export getUserId function
+    getUserId
   }
 }
