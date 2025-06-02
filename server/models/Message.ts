@@ -1,4 +1,22 @@
-import mongoose from "mongoose";
+import mongoose, { Document, Model } from "mongoose";
+
+console.log('[MODEL] Message model file evaluation started.');
+
+interface IMessage extends Document {
+  userId: mongoose.Types.ObjectId;
+  toUserId: mongoose.Types.ObjectId;
+  message: string;
+  status: 'sent' | 'delivered' | 'read';
+  messageType: 'text' | 'image' | 'file' | 'system';
+  isDeleted: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+interface MessageModel extends Model<IMessage> {
+  getMessagesBetweenUsers(userA: mongoose.Types.ObjectId, userB: mongoose.Types.ObjectId, limit?: number): Promise<IMessage[]>;
+}
+
 const messageSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -28,28 +46,28 @@ const messageSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  // optional: conversationId
 }, {
   timestamps: true
-})
+});
 
-messageSchema.index({ userId: 1, toUserId: 1, createdAt: -1 })
+messageSchema.index({ userId: 1, toUserId: 1, createdAt: -1 });
 
 messageSchema.virtual('user', {
   ref: 'User',
   localField: 'userId',
   foreignField: '_id',
   justOne: true
-})
+});
 
 messageSchema.virtual('toUser', {
   ref: 'User',
   localField: 'toUserId',
   foreignField: '_id',
   justOne: true
-})
+});
 
-messageSchema.statics.getMessagesBetweenUsers = function(userA, userB, limit = 50) {
+console.log('[MODEL] Defining getMessagesBetweenUsers static method...');
+messageSchema.statics.getMessagesBetweenUsers = function(userA: mongoose.Types.ObjectId, userB: mongoose.Types.ObjectId, limit: number = 50) {
   return this.find({
     isDeleted: false,
     $or: [
@@ -60,7 +78,9 @@ messageSchema.statics.getMessagesBetweenUsers = function(userA, userB, limit = 5
     .sort({ createdAt: -1 })
     .limit(limit)
     .populate('userId', 'name email picture')
-    .populate('toUserId', 'name email picture')
-}
+    .populate('toUserId', 'name email picture');
+};
+console.log('[MODEL] Static method getMessagesBetweenUsers defined on schema.');
 
-export const Message = mongoose.models.Message || mongoose.model('Message', messageSchema)
+export const Message = (mongoose.models.Message as MessageModel) || mongoose.model<IMessage, MessageModel>('Message', messageSchema);
+console.log(`[MODEL] Message model exported. typeof Message.getMessagesBetweenUsers: ${typeof Message.getMessagesBetweenUsers}`);
