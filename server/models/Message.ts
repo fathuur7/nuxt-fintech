@@ -1,86 +1,64 @@
-import mongoose, { Document, Model } from "mongoose";
-
-console.log('[MODEL] Message model file evaluation started.');
-
-interface IMessage extends Document {
-  userId: mongoose.Types.ObjectId;
-  toUserId: mongoose.Types.ObjectId;
-  message: string;
-  status: 'sent' | 'delivered' | 'read';
-  messageType: 'text' | 'image' | 'file' | 'system';
-  isDeleted: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-interface MessageModel extends Model<IMessage> {
-  getMessagesBetweenUsers(userA: mongoose.Types.ObjectId, userB: mongoose.Types.ObjectId, limit?: number): Promise<IMessage[]>;
-}
+import mongoose from 'mongoose'
 
 const messageSchema = new mongoose.Schema({
-  userId: {
+  senderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: true
   },
-  toUserId: {
+  receiverId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: true
   },
-  message: {
+  content: {
     type: String,
     required: true,
+    trim: true
+  },
+  messageType: {
+    type: String,
+    enum: ['text', 'image', 'file'],
+    default: 'text'
   },
   status: {
     type: String,
     enum: ['sent', 'delivered', 'read'],
     default: 'sent'
   },
-  messageType: {
-    type: String,
-    enum: ['text', 'image', 'file', 'system'],
-    default: 'text'
-  },
-  isDeleted: {
+  isRead: {
     type: Boolean,
     default: false
   },
+  readAt: {
+    type: Date
+  },
+  attachmentUrl: {
+    type: String // For file/image messages
+  },
+  attachmentType: {
+    type: String // MIME type for attachments
+  },
+  attachmentSize: {
+    type: Number // File size in bytes
+  }
 }, {
-  timestamps: true
-});
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+})
 
-messageSchema.index({ userId: 1, toUserId: 1, createdAt: -1 });
+// Index for better query performance
+messageSchema.index({ senderId: 1, receiverId: 1, createdAt: -1 })
+messageSchema.index({ receiverId: 1, isRead: 1 })
 
-messageSchema.virtual('user', {
-  ref: 'User',
-  localField: 'userId',
-  foreignField: '_id',
-  justOne: true
-});
+// Virtual for backward compatibility
+messageSchema.virtual('userId').get(function() {
+  return this.senderId
+})
 
-messageSchema.virtual('toUser', {
-  ref: 'User',
-  localField: 'toUserId',
-  foreignField: '_id',
-  justOne: true
-});
+messageSchema.virtual('toUserId').get(function() {
+  return this.receiverId
+})
 
-console.log('[MODEL] Defining getMessagesBetweenUsers static method...');
-messageSchema.statics.getMessagesBetweenUsers = function(userA: mongoose.Types.ObjectId, userB: mongoose.Types.ObjectId, limit: number = 50) {
-  return this.find({
-    isDeleted: false,
-    $or: [
-      { userId: userA, toUserId: userB },
-      { userId: userB, toUserId: userA }
-    ]
-  })
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .populate('userId', 'name email picture')
-    .populate('toUserId', 'name email picture');
-};
-console.log('[MODEL] Static method getMessagesBetweenUsers defined on schema.');
-
-export const Message = (mongoose.models.Message as MessageModel) || mongoose.model<IMessage, MessageModel>('Message', messageSchema);
-console.log(`[MODEL] Message model exported. typeof Message.getMessagesBetweenUsers: ${typeof Message.getMessagesBetweenUsers}`);
+export const Message = (mongoose.models.Message) || mongoose.model('Message', messageSchema);
