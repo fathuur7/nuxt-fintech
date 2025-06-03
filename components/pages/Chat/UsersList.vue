@@ -1,7 +1,8 @@
+<!-- UsersList.vue -->
 <template>
   <div class="h-full flex flex-col bg-white border-r border-slate-200">
     <!-- Header Section -->
-    <div class="relative bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 p-6">
+    <div class="relative bg-black p-6">
       <div class="absolute inset-0 bg-black/10"></div>
       <div class="relative z-10">
         <div class="flex items-center justify-between">
@@ -156,7 +157,7 @@
                       ]"
                     ></div>
                     <span class="text-xs text-slate-500 capitalize font-medium">
-                      {{ formatStatus(user.status) }}
+                      {{ user.status === 'idle' ? 'Away' : formatStatus(user.status) }}
                     </span>
                   </div>
                 </div>
@@ -315,3 +316,4 @@ const handleImageError = (event: Event): void => {
   animation-direction: reverse;
 }
 </style>
+
