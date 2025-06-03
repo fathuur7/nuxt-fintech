@@ -176,7 +176,7 @@
 import type { User } from '~/types/user';
 
 // Use profile to get current admin user
-const { user: currentUser, fetchUserData, getUserId } = useProfile();
+const { fetchUserData, getUserId } = useProfile();
 
 // Reactive data
 const users = ref<User[]>([]);

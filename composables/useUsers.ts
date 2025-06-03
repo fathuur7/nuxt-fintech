@@ -1,53 +1,67 @@
-interface User {
-  _id: string;
-  status?: string;
-  [key: string]: any;
-}
+// composables/useUsers.ts
+import { ref, onMounted } from 'vue'
+import { useNuxtApp } from '#app'
+import type { User } from '~/types/user'
 
 export const useUsers = () => {
   const users = ref<User[]>([])
   const loading = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
+  const lastUpdate = ref<string>('')
 
   const fetchUsers = async () => {
     try {
-  loading.value = true
-  error.value = null
-
-  const response = await $fetch('/api/user/getAllUser')
-  console.log('Fetched response:', response)
-
-  // Menangani format fleksibel
-  if (Array.isArray(response)) {
-    users.value = response
-  } else if (response.success && response.data) {
-    users.value = response.data
-  } else {
-    throw new Error(response.error || 'Failed to fetch users')
-  }
-} catch (err: any) {
-  error.value = err.message
-  console.error('Error fetching users:', err)
-} finally {
-  loading.value = false
-}
-
-  }
-
-  const getUserById = (id: string) => {
-    return users.value.find(user => user._id === id)
+      loading.value = true
+      const { data } = await $fetch('/api/user/getUser')
+      users.value = (data || []).map((u: any) => ({
+        _id: String(u._id),
+        id: String(u.id ?? u._id), // ensure 'id' is present, fallback to _id if missing
+        name: String(u.name),
+        email: String(u.email),
+        role: u.role === 'admin' ? 'admin' : 'user',
+        balance: Number(u.balance),
+        status: 'offline', // akan diperbarui oleh socket
+        isActive: Boolean(u.isActive),
+        picture: String(u.picture),
+        createdAt: String(u.createdAt),
+        updatedAt: String(u.updatedAt)
+      }))
+      lastUpdate.value = new Date().toLocaleTimeString('id-ID')
+    } catch (err: any) {
+      error.value = err.message || 'Failed to fetch users'
+    } finally {
+      loading.value = false
+    }
   }
 
-  const getOnlineUsers = () => {
-    return users.value.filter(user => user.status === 'online')
+  const updateUserStatus = (userId: string, newStatus: 'online' | 'offline' | 'idle') => {
+    const user = users.value.find(u => u._id === userId)
+    if (user) {
+      user.status = newStatus
+    }
   }
+
+  onMounted(() => {
+    fetchUsers()
+
+    const { $socket } = useNuxtApp()
+
+    $socket.get()?.on('user-connected', (userId: string) => {
+      console.log('🟢 user-connected:', userId)
+      updateUserStatus(userId, 'online')
+    })
+
+    $socket.get()?.on('user-disconnected', (userId: string) => {
+      console.log('🔴 user-disconnected:', userId)
+      updateUserStatus(userId, 'offline')
+    })
+  })
 
   return {
-    users: readonly(users),
-    loading: readonly(loading),
-    error: readonly(error),
-    fetchUsers,
-    getUserById,
-    getOnlineUsers
+    users,
+    loading,
+    error,
+    fetchUsers
+    
   }
 }

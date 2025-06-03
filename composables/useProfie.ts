@@ -6,31 +6,8 @@ export const useProfile = () => {
   const isLoading = ref(true)
   const err = ref<string | null>(null)
   const users = ref<User[]>([])
+  const lastUpdate = ref<string>('')
 
-  
-  const getAllUsers = async () => {
-   try {
-      isLoading.value = true
-      err.value = null
-
-      const response = await $fetch('/api/user/getAllUser')
-      console.log('Fetched response:', response)
-
-      // Menangani format fleksibel
-      if (Array.isArray(response)) {
-        users.value = response
-      } else if (response.success && response.data) {
-        users.value = response.data
-      } else {
-        throw new Error(response.error || 'Failed to fetch users')
-      }
-    } catch (err: any) {
-      err.value = err.message
-      console.error('Error fetching users:', err)
-    } finally {
-      isLoading.value = false // Set loading to false after fetching users or error occurs. ← Fixed: Use isL.value = false
-    }
-  }
 
   // Fetch user data from JWT token
   const fetchUserData = async () => {
@@ -122,7 +99,6 @@ export const useProfile = () => {
     isLoading: readonly(isLoading),
     fetchUserData,
     logout,
-    getAllUsers,
     getUserId
   }
 }

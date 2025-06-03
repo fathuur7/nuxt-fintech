@@ -229,17 +229,36 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 // Page metadata
 definePageMeta({
   middleware: 'auth'
 })
 
+const socket = useSocket()
 // Reactive state for image error handling
 const imageError = ref(false)
 
+
+// Define the expected user profile type
+interface UserProfile {
+  id: string
+  name: string
+  email: string
+  balance: number
+  picture?: string
+  createdAt: string
+  updatedAt: string
+}
+
+// Define the expected API response type
+interface UserProfileResponse {
+  success: boolean
+  data: UserProfile
+}
+
 // Fetch user profile data
-const { data, pending, error, refresh } = await useFetch('/api/user/profile', {
+const { data, pending, error, refresh} = await useFetch<UserProfileResponse>('/api/user/profile', {
   headers: {
     'Content-Type': 'application/json'
   },
@@ -247,11 +266,11 @@ const { data, pending, error, refresh } = await useFetch('/api/user/profile', {
 })
 
 // Utility functions
-const formatCurrency = (amount) => {
+const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('id-ID').format(amount || 0)
 }
 
-const formatDate = (dateString) => {
+const formatDate = (dateString : string) => {
   return new Date(dateString).toLocaleDateString('id-ID', {
     year: 'numeric',
     month: 'long',
@@ -261,10 +280,14 @@ const formatDate = (dateString) => {
   })
 }
 
-const getInitials = (name) => {
+interface GetInitials {
+  (name: string): string
+}
+
+const getInitials: GetInitials = (name: string): string => {
   return name
     .split(' ')
-    .map(word => word.charAt(0))
+    .map((word: string) => word.charAt(0))
     .join('')
     .toUpperCase()
     .substring(0, 2)
@@ -272,6 +295,17 @@ const getInitials = (name) => {
 
 const handleImageError = () => {
   imageError.value = true
+}
+
+const { fetchUserData, getUserId } = useProfile();
+
+// Login dan set online
+const userId = getUserId()
+if (userId) {
+  const test = await socket.goOnline(userId)
+  console.log('User online status:', test)
+} else {
+  console.warn('User ID is null, cannot go online.')
 }
 
 // SEO

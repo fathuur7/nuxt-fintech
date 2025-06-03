@@ -1,7 +1,6 @@
 import type { SocketMaps } from '../types/socket.types';
 import { UserStatusService } from './UserStatusService';
 import { BroadcastService } from './BroadcastService';
-
 export class ConnectionManager {
   constructor(
     private socketMaps: SocketMaps,
@@ -12,13 +11,11 @@ export class ConnectionManager {
     try {
       console.log(`🔄 Processing user-active for: ${userId}`);
       
-      // Clear any pending disconnect timeout
+      // Cancel offline timeout karena user reconnect
       this.clearDisconnectTimeout(userId);
       
-      // Update socket mappings
       this.updateSocketMappings(userId, socketId);
       
-      // Update user status in database
       const updatedUser = await UserStatusService.setUserOnline(userId);
       
       if (updatedUser) {
@@ -79,19 +76,53 @@ export class ConnectionManager {
   }
 
   handleDisconnectWithTimeout(userId: string, socketId: string, reason: string): void {
-    // For certain disconnect reasons, set offline immediately
-    if (reason === 'client namespace disconnect' || reason === 'transport close') {
-      console.log(`🔴 User ${userId} manually set offline`);
-      this.handleUserOffline(userId, socketId, 'manual');
-    } else {
-      // For other reasons, use timeout to handle brief disconnections
+    // Reasons yang akan langsung set offline (tanpa grace period)
+    const immediateOfflineReasons = [
+      'client namespace disconnect',  // manual disconnect/logout
+      'beforeunload',                 // user menutup tab/browser
+      'force_offline'                 // admin force offline
+    ];
+
+    // Reasons yang menandakan user berpindah tab (harus langsung offline)
+    const tabChangeReasons = [
+      'transport close',  // ketika tab tidak aktif atau berpindah tab
+      'ping timeout'      // koneksi terputus karena tab tidak aktif
+    ];
+
+    if (immediateOfflineReasons.includes(reason)) {
+      console.log(`🔴 User ${userId} going offline immediately - reason: ${reason}`);
+      this.handleUserOffline(userId, socketId, reason);
+    } else if (tabChangeReasons.includes(reason)) {
+      // Untuk tab change, beri grace period lebih pendek (2 detik)
+      // karena biasanya tab change tidak reconnect dengan cepat
       const timeoutId = setTimeout(async () => {
-        console.log(`⏰ Timeout reached for user ${userId}, setting offline`);
-        await this.handleUserOffline(userId, socketId, 'timeout');
-      }, 5000); // 5 second grace period
-      
+        const currentSocketId = this.socketMaps.userSockets.get(userId);
+        
+        if (currentSocketId === socketId) {
+          console.log(`🔴 Tab change timeout for user ${userId}, setting offline`);
+          await this.handleUserOffline(userId, socketId, 'tab_change_timeout');
+        } else {
+          console.log(`✅ User ${userId} reconnected from different tab before timeout`);
+        }
+      }, 2000); // 2 detik untuk tab change
+
       this.socketMaps.disconnectTimeouts.set(userId, timeoutId);
-      console.log(`⏰ Set disconnect timeout for user: ${userId}`);
+      console.log(`⏰ Set tab change timeout for user: ${userId}`);
+    } else {
+      // Untuk navigation dalam SPA (single page application), beri grace period lebih lama
+      const timeoutId = setTimeout(async () => {
+        const currentSocketId = this.socketMaps.userSockets.get(userId);
+        
+        if (currentSocketId === socketId) {
+          console.log(`⏰ Navigation timeout for user ${userId}, setting offline`);
+          await this.handleUserOffline(userId, socketId, 'navigation_timeout');
+        } else {
+          console.log(`✅ User ${userId} reconnected after navigation`);
+        }
+      }, 10000); // 10 detik untuk navigasi dalam aplikasi
+
+      this.socketMaps.disconnectTimeouts.set(userId, timeoutId);
+      console.log(`⏰ Set navigation timeout for user: ${userId} (reason: ${reason})`);
     }
   }
 
@@ -106,7 +137,7 @@ export class ConnectionManager {
   private updateSocketMappings(userId: string, socketId: string): void {
     // Remove any existing mapping for this user (handle reconnection)
     const existingSocketId = this.socketMaps.userSockets.get(userId);
-    if (existingSocketId) {
+    if (existingSocketId && existingSocketId !== socketId) {
       this.socketMaps.userMap.delete(existingSocketId);
     }
     
@@ -116,7 +147,11 @@ export class ConnectionManager {
   }
 
   private cleanupSocketMappings(userId: string, socketId: string): void {
-    this.socketMaps.userMap.delete(socketId);
-    this.socketMaps.userSockets.delete(userId);
+    // Only cleanup if this socket is still mapped to this user
+    const currentSocketId = this.socketMaps.userSockets.get(userId);
+    if (currentSocketId === socketId) {
+      this.socketMaps.userMap.delete(socketId);
+      this.socketMaps.userSockets.delete(userId);
+    }
   }
 }
