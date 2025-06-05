@@ -217,7 +217,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useProfile } from '@/composables/useProfie'
 import { useAdminList } from '@/composables/useAdminList'
 import { useNuxtApp } from '#app'
-import type { User } from '~/types/user'
+import type { User as UserType } from '~/types/user'
 
 // Types
 interface Message {
@@ -278,7 +278,7 @@ const currentMessages = computed(() => {
 })
 
 // Methods
-const handleUserSelect = async (user: User) => {
+const handleUserSelect = async (user: UserType) => {
   selectUser(user) // This will update selectedUserId in the composable
   await loadMessages(user._id)
   markAsRead(user._id)
