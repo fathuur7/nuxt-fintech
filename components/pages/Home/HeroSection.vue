@@ -625,9 +625,10 @@ const handleInvestClick = async () => {
 const handleContactClick = () => {
   playClickSound()
   showToast.value = true
-  toastMessage.value = 'Opening contact form...'
+  toastMessage.value = 'Opening chat...'
   setTimeout(() => showToast.value = false, 2000)
-  
+  // In real app, use: await navigateTo('/chat')
+  useRouter().push('/chat')
   // In real app, use: await navigateTo('/contact')
 }
 

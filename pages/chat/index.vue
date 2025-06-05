@@ -46,9 +46,9 @@
           <div 
             v-for="chatUser in filteredUsers" 
             :key="chatUser._id"
-            @click="selectUser(chatUser)"
+            @click="handleUserSelect(chatUser)"
             class="flex items-center p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 transition-colors"
-            :class="{ 'bg-blue-50 border-blue-200': selectedUser?._id === chatUser._id }"
+            :class="{ 'bg-blue-50 border-blue-200': selectedUserId === chatUser._id }"
           >
             <!-- Avatar -->
             <div class="relative">
@@ -215,7 +215,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useProfile } from '@/composables/useProfie'
-import { useUsers } from '@/composables/useUsers'
+import { useAdminList } from '@/composables/useAdminList'
 import { useNuxtApp } from '#app'
 import type { User } from '~/types/user'
 
@@ -237,79 +237,39 @@ interface ChatData {
   }
 }
 
-const {
-  selectedUserId,
-  users,
-  // selectUser
-} = useUsersList();
-
-// const { user, fetchUserData } = useProfile();
-
-// Ensure user data is fetched on mount
-onMounted(() => {
-  fetchUserData();
-});
-
-// Computed: user yang sedang dipilih
-// const selectedUser = computed(() => {
-//   console.log('Selected User ID:', selectedUserId.value);
-//   return users.value.find(user => user._id === selectedUserId.value) || null;
-// });
-
-// // Computed: user yang sedang login (admin)
-// const currentUser = computed(() => user.value);
-// console.log('Current User:', currentUser);
-
-
 // Composables
 const { user: currentUser, fetchUserData, getUserId } = useProfile()
-const {  loading, fetchUsers } = useUsers()
+const { 
+  users, 
+  loading, 
+  selectedUserId, 
+  selectUser, 
+  getUnreadCount: getUnreadCountFromComposable,
+  refreshUsers,
+  initializeSocket 
+} = useAdminList()
 const { $socket } = useNuxtApp()
 
 // Reactive data
-const selectedUser = ref<User | null>(null)
 const newMessage = ref('')
 const sending = ref(false)
 const messagesLoading = ref(false)
 const searchQuery = ref('')
 const messagesContainer = ref<HTMLElement>()
 const chats = ref<ChatData>({})
-const currentUserId = computed(() => currentUser.value?._id || '')
-
-// console.log('Current User:', currentUser.value)
-// console.log('Users:', users.value)
-// // Watch for current user changes
-
 
 // Computed
-const filteredUsers = computed<User[]>(() => {
-  if (!searchQuery.value) {
-    return users.value
-      .filter((user: any) => user._id !== currentUser.value?._id)
-      .map((user: any) => ({
-        ...user,
-        id: user.id ?? user._id,
-        role: user.role ?? '',
-        balance: user.balance ?? 0,
-        isActive: user.isActive ?? true,
-        createdAt: user.createdAt ?? '',
-      })) as User[]
-  }
+const selectedUser = computed(() => {
+  return users.value.find(user => user._id === selectedUserId.value) || null
+})
+
+const filteredUsers = computed(() => {
+  if (!searchQuery.value) return users.value
   
-  return users.value
-    .filter((user: any) => 
-      user._id !== currentUser.value?._id &&
-      (user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-       user.email.toLowerCase().includes(searchQuery.value.toLowerCase()))
-    )
-    .map((user: any) => ({
-      ...user,
-      id: user.id ?? user._id,
-      role: user.role ?? '',
-      balance: user.balance ?? 0,
-      isActive: user.isActive ?? true,
-      createdAt: user.createdAt ?? '',
-    })) as User[]
+  return users.value.filter(user =>
+    user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchQuery.value.toLowerCase())
+  )
 })
 
 const currentMessages = computed(() => {
@@ -318,13 +278,11 @@ const currentMessages = computed(() => {
 })
 
 // Methods
-const selectUser = async (user: User) => {
-  selectedUser.value = user
+const handleUserSelect = async (user: User) => {
+  selectUser(user) // This will update selectedUserId in the composable
   await loadMessages(user._id)
   markAsRead(user._id)
   scrollToBottom()
-  console.log('Selected User ID:', selectedUserId.value);
-  return users.value.find(user => user._id === selectedUserId.value) || null;
 }
 
 const loadMessages = async (userId: string) => {
@@ -334,7 +292,7 @@ const loadMessages = async (userId: string) => {
     
     const response = await $fetch<{ success: boolean, data: Message[] }>(`/api/message/getMessages`, {
       query: {
-        userA: currentUserId.value,
+        userA: getUserId(),
         userB: userId
       },
       headers: {
@@ -415,7 +373,6 @@ const sendMessage = async () => {
     // Show user-friendly error message
     if (error.statusCode === 401) {
       console.error('Authentication failed')
-      // Redirect to login atau refresh token
     } else if (error.statusCode === 404) {
       console.error('Recipient not found')
     } else {
@@ -431,7 +388,8 @@ const getLastMessage = (userId: string): string => {
 }
 
 const getUnreadCount = (userId: string): number => {
-  return chats.value[userId]?.unreadCount || 0
+  // Use local chat unread count if available, otherwise use composable
+  return chats.value[userId]?.unreadCount || getUnreadCountFromComposable(userId)
 }
 
 const markAsRead = (userId: string) => {
@@ -469,10 +427,6 @@ const handleImageError = (event: Event) => {
   // target.src = '/default-avatar.png'
 }
 
-const refreshUsers = () => {
-  fetchUsers()
-}
-
 // Socket event handlers
 const setupSocketListeners = () => {
   const socket = $socket.get()
@@ -502,7 +456,6 @@ const setupSocketListeners = () => {
   
   // Listen for typing indicators (optional)
   socket.on('user-typing', (data: { userId: string, isTyping: boolean }) => {
-    // Handle typing indicator
     console.log('User typing:', data)
   })
 }
@@ -516,19 +469,15 @@ const cleanupSocketListeners = () => {
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  // Ensure user data is fetched
+  await fetchUserData()
+  
+  // Initialize socket (this is handled by the composable)
+  await initializeSocket()
+  
+  // Setup additional socket listeners for chat
   setupSocketListeners()
-  
-  // Auto-refresh users periodically
-  const interval = setInterval(() => {
-    if (!loading.value) {
-      fetchUsers()
-    }
-  }, 30000) // Refresh every 30 seconds
-  
-  onUnmounted(() => {
-    clearInterval(interval)
-  })
 })
 
 onUnmounted(() => {
@@ -542,11 +491,9 @@ watch(currentMessages, () => {
   }
 }, { deep: true })
 
-
 // SEO
 definePageMeta({
-  title: 'Chat',
-  layout: 'admin',
+  title: 'Chat for User',
   middleware: 'auth',
   meta: [
     { name: 'description', content: 'Chat with users in real-time' },
