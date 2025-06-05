@@ -1,6 +1,17 @@
 // composables/useSocket.ts
+import type { Socket } from 'socket.io-client'
+
 export const useSocket = () => {
-  const { $socket } = useNuxtApp()
+  const { $socket } = useNuxtApp() as { $socket: {
+    init: () => Promise<Socket | null>,
+    get: () => Socket | null,
+    setUserOnline: (userId: string) => Promise<void>,
+    logout: (userId?: string) => void,
+    setUserOffline: (userId?: string, disconnect?: boolean) => void,
+    getCurrentUserId: () => string | null,
+    getConnectionStatus: () => boolean,
+    reconnect: () => void
+  } }
 
   // Initialize socket connection
   const initSocket = async () => {
@@ -43,20 +54,14 @@ export const useSocket = () => {
   const getCurrentUserId = () => {
     return $socket.getCurrentUserId()
   }
-
-  // Get connection status
-  const isConnected = () => {
-    return $socket.getConnectionStatus()
+  // Get raw socket instance (for custom events)
+  const getSocket = (): Socket | null => {
+    return $socket.get()
   }
 
   // Manual reconnect
   const reconnect = () => {
     $socket.reconnect()
-  }
-
-  // Get raw socket instance (for custom events)
-  const getSocket = () => {
-    return $socket.get()
   }
 
   // Listen to custom events
@@ -83,6 +88,11 @@ export const useSocket = () => {
     } else {
       console.warn('Socket not connected, cannot emit event:', event)
     }
+  }
+
+  // Check connection status
+  const isConnected = () => {
+    return $socket.getConnectionStatus()
   }
 
   return {

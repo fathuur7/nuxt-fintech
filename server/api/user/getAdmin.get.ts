@@ -1,4 +1,3 @@
-// server/api/admin-users.ts
 import { connectDB} from '@/server/utils/mongoose'
 import { User } from '@/server/models/User'
 

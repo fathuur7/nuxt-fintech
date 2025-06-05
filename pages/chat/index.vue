@@ -1,12 +1,12 @@
-<!-- pages/chat.vue -->
+<!-- pages/admin/chat.vue -->
 <template>
   <div class="flex h-screen bg-gray-100">
-    <!-- Sidebar - User List -->
+    <!-- Sidebar - Admin List -->
     <div class="w-1/4 bg-white border-r border-gray-200 flex flex-col">
       <!-- Header -->
       <div class="p-4 border-b border-gray-200">
         <div class="flex items-center justify-between">
-          <h1 class="text-xl font-semibold text-gray-800">Chats</h1>
+          <h1 class="text-xl font-semibold text-gray-800">Admin Chats</h1>
           <button 
             @click="refreshUsers"
             class="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
@@ -23,38 +23,59 @@
           <input 
             v-model="searchQuery"
             type="text" 
-            placeholder="Search users..."
+            placeholder="Search admins..."
             class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
           <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
           </svg>
         </div>
+
+        <!-- Connection Status -->
+        <div class="mt-2 flex items-center text-xs">
+          <div 
+            class="w-2 h-2 rounded-full mr-2"
+            :class="socketConnected ? 'bg-green-500' : 'bg-red-500'"
+          ></div>
+          <span :class="socketConnected ? 'text-green-600' : 'text-red-600'">
+            {{ socketConnected ? 'Connected' : 'Disconnected' }}
+          </span>
+          <span v-if="lastUpdate" class="ml-2 text-gray-500">
+            Updated: {{ lastUpdate }}
+          </span>
+        </div>
       </div>
 
-      <!-- User List -->
+      <!-- Admin List -->
       <div class="flex-1 overflow-y-auto">
         <div v-if="loading && users.length === 0" class="p-4 text-center text-gray-500">
-          Loading users...
+          Loading admins...
+        </div>
+        
+        <div v-else-if="error" class="p-4 text-center text-red-500">
+          {{ error }}
+          <button @click="refreshUsers" class="block mt-2 text-blue-500 hover:text-blue-700">
+            Try Again
+          </button>
         </div>
         
         <div v-else-if="filteredUsers.length === 0" class="p-4 text-center text-gray-500">
-          No users found
+          No admins found
         </div>
         
         <div v-else>
           <div 
-            v-for="chatUser in filteredUsers" 
-            :key="chatUser._id"
-            @click="handleUserSelect(chatUser)"
+            v-for="admin in filteredUsers" 
+            :key="admin._id"
+            @click="handleAdminSelect(admin)"
             class="flex items-center p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 transition-colors"
-            :class="{ 'bg-blue-50 border-blue-200': selectedUserId === chatUser._id }"
+            :class="{ 'bg-blue-50 border-blue-200': selectedUserId === admin._id }"
           >
             <!-- Avatar -->
             <div class="relative">
               <img 
-                :src="chatUser.picture" 
-                :alt="chatUser.name"
+                :src="admin.picture || '/default-avatar.png'" 
+                :alt="admin.name"
                 class="w-12 h-12 rounded-full object-cover"
                 @error="handleImageError"
               >
@@ -62,38 +83,43 @@
               <div 
                 class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white"
                 :class="{
-                  'bg-green-500': chatUser.status === 'online',
-                  'bg-yellow-500': chatUser.status === 'idle',
-                  'bg-gray-400': chatUser.status === 'offline'
+                  'bg-green-500': admin.status === 'online',
+                  'bg-yellow-500': admin.status === 'idle',
+                  'bg-gray-400': admin.status === 'offline'
                 }"
               ></div>
             </div>
             
-            <!-- User info -->
+            <!-- Admin info -->
             <div class="ml-3 flex-1 min-w-0">
               <div class="flex items-center justify-between">
-                <p class="text-sm font-medium text-gray-900 truncate">
-                  {{ chatUser.name }}
-                </p>
+                <div class="flex items-center">
+                  <p class="text-sm font-medium text-gray-900 truncate">
+                    {{ admin.name }}
+                  </p>
+                  <span class="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {{ admin.role }}
+                  </span>
+                </div>
                 <span class="text-xs text-gray-500 capitalize">
-                  {{ chatUser.status }}
+                  {{ admin.status }}
                 </span>
               </div>
               <p class="text-xs text-gray-500 truncate">
-                {{ chatUser.email }}
+                {{ admin.email }}
               </p>
               <!-- Last message preview -->
-              <p v-if="getLastMessage(chatUser._id)" class="text-xs text-gray-400 truncate mt-1">
-                {{ getLastMessage(chatUser._id) }}
+              <p v-if="getLastMessage(admin._id)" class="text-xs text-gray-400 truncate mt-1">
+                {{ getLastMessage(admin._id) }}
               </p>
             </div>
             
             <!-- Unread count -->
             <div 
-              v-if="getUnreadCount(chatUser._id) > 0"
+              v-if="getUnreadCount(admin._id) > 0"
               class="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center"
             >
-              {{ getUnreadCount(chatUser._id) }}
+              {{ getUnreadCount(admin._id) }}
             </div>
           </div>
         </div>
@@ -104,26 +130,46 @@
     <div class="flex-1 flex flex-col">
       <!-- Chat Header -->
       <div v-if="selectedUser" class="bg-white border-b border-gray-200 p-4">
-        <div class="flex items-center">
-          <img 
-            :src="selectedUser.picture" 
-            :alt="selectedUser.name"
-            class="w-10 h-10 rounded-full object-cover"
-            @error="handleImageError"
-          >
-          <div class="ml-3">
-            <h2 class="text-lg font-semibold text-gray-900">{{ selectedUser.name }}</h2>
-            <p class="text-sm text-gray-500 capitalize flex items-center">
-              <span 
-                class="w-2 h-2 rounded-full mr-2"
-                :class="{
-                  'bg-green-500': selectedUser.status === 'online',
-                  'bg-yellow-500': selectedUser.status === 'idle',
-                  'bg-gray-400': selectedUser.status === 'offline'
-                }"
-              ></span>
-              {{ selectedUser.status }}
-            </p>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <img 
+              :src="selectedUser.picture || '/default-avatar.png'" 
+              :alt="selectedUser.name"
+              class="w-10 h-10 rounded-full object-cover"
+              @error="handleImageError"
+            >
+            <div class="ml-3">
+              <div class="flex items-center">
+                <h2 class="text-lg font-semibold text-gray-900">{{ selectedUser.name }}</h2>
+                <span class="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {{ selectedUser.role }}
+                </span>
+              </div>
+              <p class="text-sm text-gray-500 capitalize flex items-center">
+                <span 
+                  class="w-2 h-2 rounded-full mr-2"
+                  :class="{
+                    'bg-green-500': selectedUser.status === 'online',
+                    'bg-yellow-500': selectedUser.status === 'idle',
+                    'bg-gray-400': selectedUser.status === 'offline'
+                  }"
+                ></span>
+                {{ selectedUser.status }}
+              </p>
+            </div>
+          </div>
+          
+          <!-- Admin Actions -->
+          <div class="flex items-center space-x-2">
+            <button 
+              @click="clearChat"
+              class="text-gray-500 hover:text-red-600 p-1 rounded"
+              title="Clear Chat"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -134,8 +180,8 @@
           <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
           </svg>
-          <h3 class="text-lg font-medium text-gray-900 mb-2">Select a conversation</h3>
-          <p class="text-gray-500">Choose a user from the sidebar to start chatting</p>
+          <h3 class="text-lg font-medium text-gray-900 mb-2">Select an admin to chat</h3>
+          <p class="text-gray-500">Choose an admin from the sidebar to start chatting</p>
         </div>
       </div>
 
@@ -190,7 +236,7 @@
           <input 
             v-model="newMessage"
             type="text" 
-            placeholder="Type a message..."
+            placeholder="Type a message to admin..."
             class="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             :disabled="sending"
           >
@@ -217,9 +263,18 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useProfile } from '@/composables/useProfie'
 import { useAdminList } from '@/composables/useAdminList'
 import { useNuxtApp } from '#app'
-import type { User as UserType } from '~/types/user'
 
 // Types
+interface Admin {
+  _id: string
+  name: string
+  email: string
+  picture: string
+  role: string
+  status: 'online' | 'offline' | 'idle'
+  updatedAt?: string
+}
+
 interface Message {
   _id: string
   content: string
@@ -242,6 +297,9 @@ const { user: currentUser, fetchUserData, getUserId } = useProfile()
 const { 
   users, 
   loading, 
+  error,
+  socketConnected,
+  lastUpdate,
   selectedUserId, 
   selectUser, 
   getUnreadCount: getUnreadCountFromComposable,
@@ -265,7 +323,7 @@ const selectedUser = computed(() => {
 
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return users.value
-  
+
   return users.value.filter(user =>
     user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.value.toLowerCase())
@@ -278,16 +336,16 @@ const currentMessages = computed(() => {
 })
 
 // Methods
-const handleUserSelect = async (user: UserType) => {
-  selectUser(user) // This will update selectedUserId in the composable
-  await loadMessages(user._id)
-  markAsRead(user._id)
+const handleAdminSelect = async (admin: Admin) => {
+  selectUser(admin) // This will update selectedUserId in the composable
+  await loadMessages(admin._id)
+  markAsRead(admin._id)
   scrollToBottom()
 }
 
 const loadMessages = async (userId: string) => {
   try {
-    console.log('Loading messages for userId:', userId)
+    console.log('Loading messages for admin userId:', userId)
     messagesLoading.value = true
     
     const response = await $fetch<{ success: boolean, data: Message[] }>(`/api/message/getMessages`, {
@@ -300,7 +358,7 @@ const loadMessages = async (userId: string) => {
       }
     })
     
-    console.log('Messages response:', response)
+    console.log('Admin messages response:', response)
     
     if (response.success) {
       if (!chats.value[userId]) {
@@ -309,7 +367,7 @@ const loadMessages = async (userId: string) => {
       chats.value[userId].messages = response.data || []
     }
   } catch (error) {
-    console.error('Error loading messages:', error)
+    console.error('Error loading admin messages:', error)
   } finally {
     messagesLoading.value = false
   }
@@ -322,7 +380,7 @@ const sendMessage = async () => {
     sending.value = true
     const messageContent = newMessage.value.trim()
     
-    console.log('Sending message:', {
+    console.log('Sending message to admin:', {
       senderId: getUserId(),
       toUserId: selectedUser.value._id,
       message: messageContent
@@ -342,7 +400,7 @@ const sendMessage = async () => {
       }
     })
     
-    console.log('Send message response:', response)
+    console.log('Send message to admin response:', response)
     
     if (response.success) {
       // Add message to local chat
@@ -368,15 +426,15 @@ const sendMessage = async () => {
       scrollToBottom()
     }
   } catch (error: any) {
-    console.error('Error sending message:', error)
+    console.error('Error sending message to admin:', error)
     
     // Show user-friendly error message
     if (error.statusCode === 401) {
       console.error('Authentication failed')
     } else if (error.statusCode === 404) {
-      console.error('Recipient not found')
+      console.error('Admin not found')
     } else {
-      console.error('Failed to send message')
+      console.error('Failed to send message to admin')
     }
   } finally {
     sending.value = false
@@ -395,6 +453,12 @@ const getUnreadCount = (userId: string): number => {
 const markAsRead = (userId: string) => {
   if (chats.value[userId]) {
     chats.value[userId].unreadCount = 0
+  }
+}
+
+const clearChat = () => {
+  if (selectedUser.value && confirm('Are you sure you want to clear this chat?')) {
+    chats.value[selectedUser.value._id] = { messages: [], unreadCount: 0 }
   }
 }
 
@@ -424,7 +488,7 @@ const formatTime = (dateString: string): string => {
 
 const handleImageError = (event: Event) => {
   const target = event.target as HTMLImageElement
-  // target.src = '/default-avatar.png'
+  target.src = '/default-avatar.png'
 }
 
 // Socket event handlers
@@ -432,7 +496,7 @@ const setupSocketListeners = () => {
   const socket = $socket.get()
   if (!socket) return
   
-  // Listen for incoming messages
+  // Listen for incoming messages from admins
   socket.on('receive-message', (data: { senderId: string, message: Message }) => {
     const { senderId, message } = data
     
@@ -454,9 +518,9 @@ const setupSocketListeners = () => {
     }
   })
   
-  // Listen for typing indicators (optional)
-  socket.on('user-typing', (data: { userId: string, isTyping: boolean }) => {
-    console.log('User typing:', data)
+  // Listen for admin typing indicators
+  socket.on('admin-typing', (data: { userId: string, isTyping: boolean }) => {
+    console.log('Admin typing:', data)
   })
 }
 
@@ -465,7 +529,7 @@ const cleanupSocketListeners = () => {
   if (!socket) return
   
   socket.off('receive-message')
-  socket.off('user-typing')
+  socket.off('admin-typing')
 }
 
 // Lifecycle
@@ -493,11 +557,11 @@ watch(currentMessages, () => {
 
 // SEO
 definePageMeta({
-  title: 'Chat for User',
+  title: 'Admin Chat',
   middleware: 'auth',
   meta: [
-    { name: 'description', content: 'Chat with users in real-time' },
-    { name: 'keywords', content: 'chat, messaging, real-time' }
+    { name: 'description', content: 'Chat with admins in real-time' },
+    { name: 'keywords', content: 'admin, chat, messaging, real-time' }
   ]
 })
 </script>
@@ -535,5 +599,19 @@ definePageMeta({
 
 .space-y-4 > div {
   animation: slideIn 0.3s ease-out;
+}
+
+/* Status indicator animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.bg-green-500 {
+  animation: pulse 2s infinite;
 }
 </style>

@@ -1,8 +1,11 @@
 import { Server } from 'socket.io';
-import type { UserStatusData } from '../types/socket.types';
+import type { UserStatusData, SocketMaps } from '../types/socket.types';
 
 export class BroadcastService {
-  constructor(private io: Server) {}
+  constructor(
+    private io: Server,
+    private socketMaps: SocketMaps
+  ) {}
 
   broadcastStatusUpdate(userId: string, status: 'online' | 'offline' | 'idle', userData: any): void {
     const timestamp = new Date().toISOString();
@@ -15,11 +18,9 @@ export class BroadcastService {
       userName: userData.name
     };
 
-    // Broadcast with different event names for different listeners
     this.io.emit('status-update', eventData);
     this.io.emit('user-status-update', eventData);
     
-    // Specific status events
     if (status === 'online') {
       this.io.emit('user-online', eventData);
     } else if (status === 'offline') {
@@ -39,5 +40,54 @@ export class BroadcastService {
       timestamp: new Date().toISOString(),
       userName: userData.name
     });
+  }
+
+  broadcastToUser(userId: string, event: string, data: any) {
+    const socketId = this.socketMaps.userSockets.get(userId);
+    if (socketId) {
+      this.io.to(socketId).emit(event, data);
+      return true;
+    }
+    return false;
+  }
+
+  broadcastToUsers(userIds: string[], event: string, data: any) {
+    userIds.forEach(userId => {
+      this.broadcastToUser(userId, event, data);
+    });
+  }
+
+  broadcastNewMessage(senderId: string, receiverId: string, message: any) {
+    this.broadcastToUser(senderId, 'message:sent', message);
+    
+    const delivered = this.broadcastToUser(receiverId, 'message:received', message);
+    
+    if (delivered) {
+      setTimeout(() => {
+        this.broadcastToUser(senderId, 'message:status_updated', {
+          messageId: message._id,
+          status: 'delivered'
+        });
+      }, 100);
+    }
+  }
+
+  broadcastTypingStatus(senderId: string, receiverId: string, isTyping: boolean) {
+    this.broadcastToUser(receiverId, 'user:typing', {
+      userId: senderId,
+      isTyping
+    });
+  }
+
+  broadcastUserStatus(userId: string, status: 'online' | 'offline') {
+    this.io.emit('user:status_changed', {
+      userId,
+      status,
+      timestamp: new Date()
+    });
+  }
+
+  broadcastUnreadCount(userId: string, count: number) {
+    this.broadcastToUser(userId, 'messages:unread_count', { count });
   }
 }

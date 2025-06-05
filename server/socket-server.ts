@@ -6,6 +6,7 @@ import { BroadcastService } from './services/BroadcastService';
 import { ConnectionManager } from './services/ConnectionManager';
 import { SocketEventHandlers } from './handlers/SocketEventHandlers';
 import { CleanupService } from './services/CleanupService';
+import { MessageHandlers } from './handlers/MessageHandlers';
 
 const startSocketServer = async () => {
   await connectDB();
@@ -16,7 +17,10 @@ const startSocketServer = async () => {
       origin: ['http://localhost:3000', 'http://localhost:3001'],
       methods: ['GET', 'POST'],
       credentials: true
-    }
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling']
   });
 
   // Initialize socket maps
@@ -27,14 +31,19 @@ const startSocketServer = async () => {
   };
 
   // Initialize services
-  const broadcastService = new BroadcastService(io);
+  const broadcastService = new BroadcastService(io, socketMaps);
   const connectionManager = new ConnectionManager(socketMaps, broadcastService);
+  const messageHandlers = new MessageHandlers(broadcastService, socketMaps);
   const eventHandlers = new SocketEventHandlers(connectionManager, broadcastService, socketMaps);
   const cleanupService = new CleanupService(connectionManager, broadcastService, socketMaps);
 
   // Register socket event handlers
   io.on('connection', (socket) => {
+    console.log(`🔌 New connection: ${socket.id}`);
+    
+    // Register both connection and message handlers
     eventHandlers.registerHandlers(socket);
+    messageHandlers.registerMessageHandlers(socket);
   });
 
   // Start cleanup service
