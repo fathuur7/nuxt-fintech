@@ -3,15 +3,23 @@ import { ConnectionManager } from '../services/ConnectionManager';
 import { User } from '../models/User';
 import  { BroadcastService } from '../services/BroadcastService';
 import type { SocketMaps } from '../types/socket.types';
+import { MessageHandlers } from '../handlers/MessageHandlers';
 
 export class SocketEventHandlers {
+  private messageHandlers: MessageHandlers; 
   constructor(
     private connectionManager: ConnectionManager,
     private broadcastService: BroadcastService,
     private socketMaps: SocketMaps
-  ) {}
-
+  ) {
+    this.messageHandlers = new MessageHandlers(connectionManager, broadcastService, socketMaps);
+  }
+  
   registerHandlers(socket: Socket): void {
+    this.registerHandlers(socket);
+    
+    // Register message handlers
+    this.messageHandlers.registerMessageHandlers(socket);
     console.log('🔌 New connection:', socket.id);
 
     socket.on('user-active', (userId: string) => {

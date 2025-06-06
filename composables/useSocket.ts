@@ -2,7 +2,8 @@
 import type { Socket } from 'socket.io-client'
 
 export const useSocket = () => {
-  const { $socket } = useNuxtApp() as { $socket: {
+  const nuxtApp = useNuxtApp()
+  const $socket = (nuxtApp as any).$socket as {
     init: () => Promise<Socket | null>,
     get: () => Socket | null,
     setUserOnline: (userId: string) => Promise<void>,
@@ -11,7 +12,11 @@ export const useSocket = () => {
     getCurrentUserId: () => string | null,
     getConnectionStatus: () => boolean,
     reconnect: () => void
-  } }
+  }
+
+  if (!$socket) {
+    throw new Error('$socket is not available in Nuxt app context')
+  }
 
   // Initialize socket connection
   const initSocket = async () => {

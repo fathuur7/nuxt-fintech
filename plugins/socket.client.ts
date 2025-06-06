@@ -319,6 +319,7 @@ export default defineNuxtPlugin(() => {
         get,
         setUserOnline,
         setUserOffline,
+        handleNavigation,
         logout, // Method baru untuk logout
         getCurrentUserId: () => currentUserId,
         // Method tambahan untuk debugging

@@ -42,7 +42,7 @@ export const useAdminList = (): UseAdminListReturn => {
   const lastUpdate = ref<string>('')
   const selectedUserId = ref<string | null>(null)
 
-  const { $socket } = useNuxtApp()
+  const { $socket } = useNuxtApp() as unknown as { $socket: any }
   const { fetchUserData, getUserId } = useProfile()
   const { 
     setSelectedUser, 
