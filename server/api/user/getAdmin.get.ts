@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
 
     return {
       success: true,
-      data: adminUsers,
+      data: adminUsers
     }
   } catch (error) {
     console.error('Failed to fetch admin users:', error)

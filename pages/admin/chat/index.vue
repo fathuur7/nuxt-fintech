@@ -21,14 +21,37 @@
 </template>
 
 <script setup lang="ts">
+// import { useRouter } from 'vue-router'
 const { data, error, pending } = await useFetch('/api/user/getAllUser')
-const users = data.value?.data || []
+const users = data.value && data.value.success && Array.isArray((data.value as any).data) ? (data.value as any).data : []
 
 const router = useRouter()
 function navigateToChat(userId: string) {
-  router.push(`/chat/${userId}`)
+  router.push(`/admin/chat/${userId}`)
 }
+const { fetchUserData, getUserId } = useProfile();
+const { $socket } = useNuxtApp()
+// Login dan set online
+onMounted(async () => {
+  await fetchUserData()
+  
+  // Set user online after data is fetched
+  const userId = getUserId()
+  if (userId) {
+    console.log('🔄 Initializing socket for user:', userId)
+    await $socket.setUserOnline(userId)
+  } else {
+    console.error('❌ No user ID available for socket connection')
+  }
+})
 
+// Set user offline when component is unmounted
+onUnmounted(() => {
+  const userId = getUserId()
+  if (userId) {
+    $socket.setUserOffline(userId)
+  }
+})
 definePageMeta({
   title: 'Chat',
   layout: 'admin',

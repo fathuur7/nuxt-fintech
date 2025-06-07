@@ -1,3 +1,6 @@
+import { Message } from '@/server/models/Message'
+import mongoose from 'mongoose'
+
 export default defineEventHandler(async (event) => {
   try {
     const messageId = getRouterParam(event, 'id')
@@ -50,7 +53,7 @@ export default defineEventHandler(async (event) => {
   } catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: error.message
+      statusMessage: typeof error === 'object' && error !== null && 'message' in error ? (error as any).message : 'Internal Server Error'
     })
   }
 })

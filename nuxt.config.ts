@@ -55,7 +55,7 @@ export default defineNuxtConfig({
 
   plugins: [
     // '~/server/plugins/socket.ts' ,
-    '~/plugins/socket.client.ts'
+    { src: '~/plugins/socket.client.ts', mode: 'client' }, // '~/plugins/socket.client.ts' 
   ],
 
   // Route rules

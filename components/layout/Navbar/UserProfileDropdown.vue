@@ -136,7 +136,7 @@ const userPicture = computed(() => getUserPicture(props.user))
 const handleImageError = (event: Event) => {
   // Optionally, you can provide a fallback image here
   const target = event.target as HTMLImageElement
-  target.src = '/default-avatar.png'
+  // target.src = '/default-avatar.png'
 }
 
 const formattedBalance = computed(() => 

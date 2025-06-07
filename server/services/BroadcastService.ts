@@ -58,9 +58,9 @@ export class BroadcastService {
   }
 
   broadcastNewMessage(senderId: string, receiverId: string, message: any) {
-    this.broadcastToUser(senderId, 'message:sent', message);
-    
-    const delivered = this.broadcastToUser(receiverId, 'message:received', message);
+    this.broadcastToUser(senderId, 'send_message', message);
+      
+    const delivered = this.broadcastToUser(receiverId, 'message_received', message);
     
     if (delivered) {
       setTimeout(() => {

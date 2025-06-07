@@ -235,7 +235,6 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const socket = useSocket()
 // Reactive state for image error handling
 const imageError = ref(false)
 
@@ -296,18 +295,29 @@ const getInitials: GetInitials = (name: string): string => {
 const handleImageError = () => {
   imageError.value = true
 }
-
 const { fetchUserData, getUserId } = useProfile();
-
+const { $socket } = useNuxtApp()
 // Login dan set online
-const userId = getUserId()
-if (userId) {
-  const test = await socket.goOnline(userId)
-  console.log('User online status:', test)
-} else {
-  console.warn('User ID is null, cannot go online.')
-}
+onMounted(async () => {
+  await fetchUserData()
+  
+  // Set user online after data is fetched
+  const userId = getUserId()
+  if (userId) {
+    console.log('🔄 Initializing socket for user:', userId)
+    await $socket.setUserOnline(userId)
+  } else {
+    console.error('❌ No user ID available for socket connection')
+  }
+})
 
+// Set user offline when component is unmounted
+onUnmounted(() => {
+  const userId = getUserId()
+  if (userId) {
+    $socket.setUserOffline(userId)
+  }
+})
 // SEO
 useHead({
   title: 'Profil Pengguna - Dashboard',

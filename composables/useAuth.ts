@@ -18,11 +18,13 @@ export function useAuth() {
   const initializeSocket = async () => {
     if (process.client && user.value?._id) {
       const { $socket } = useNuxtApp()
-      // Add type assertion for $socket
-      const socket = $socket as { setUserOnline: (id: string) => Promise<void> }
       try {
-        await socket.setUserOnline(user.value._id)
-        console.log('✅ Socket initialized for authenticated user')
+        const result = await $socket.setUserOnline(user.value._id)
+        if (result) {
+          console.log('✅ Socket initialized for authenticated user')
+        } else {
+          console.warn('⚠️ setUserOnline returned false')
+        }
       } catch (error) {
         console.error('❌ Failed to initialize socket:', error)
       }

@@ -1,30 +1,33 @@
+import { Message } from '@/server/models/Message'
+import mongoose from 'mongoose'
+
 export default defineEventHandler(async (event) => {
   try {
     const query = getQuery(event)
     const { userId } = query
 
-    if (!userId) {
+    if (!userId || typeof userId !== 'string') {
       throw createError({
         statusCode: 400,
-        statusMessage: 'userId is required'
+        statusMessage: 'userId is required and must be a string'
       })
     }
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
 
     // Get latest message for each conversation
     const conversations = await Message.aggregate([
       {
         $match: {
           $or: [
-            { senderId: new mongoose.Types.ObjectId(userId) },
-            { receiverId: new mongoose.Types.ObjectId(userId) }
+            { senderId: userObjectId },
+            { receiverId: userObjectId }
           ]
-        }
-      },
-      {
+        },
         $addFields: {
           otherUserId: {
             $cond: {
-              if: { $eq: ['$senderId', new mongoose.Types.ObjectId(userId)] },
+              if: { $eq: ['$senderId', userObjectId] },
               then: '$receiverId',
               else: '$senderId'
             }
@@ -32,9 +35,7 @@ export default defineEventHandler(async (event) => {
         }
       },
       {
-        $sort: { createdAt: -1 }
-      },
-      {
+        $sort: { createdAt: -1 },
         $group: {
           _id: '$otherUserId',
           lastMessage: { $first: '$$ROOT' },
@@ -43,7 +44,7 @@ export default defineEventHandler(async (event) => {
               $cond: [
                 {
                   $and: [
-                    { $eq: ['$receiverId', new mongoose.Types.ObjectId(userId)] },
+                    { $eq: ['$receiverId', userObjectId] },
                     { $eq: ['$isRead', false] }
                   ]
                 },
@@ -77,7 +78,7 @@ export default defineEventHandler(async (event) => {
   } catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: error.message
+      statusMessage: typeof error === 'object' && error !== null && 'message' in error ? (error as any).message : 'An unknown error occurred'
     })
   }
 })

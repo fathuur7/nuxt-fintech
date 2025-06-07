@@ -62,7 +62,6 @@ export const useUsersList = (): UseUsersListReturn => {
 
   const selectUser = (user: User): void => {
     selectedUserId.value = user._id
-    setSelectedUser(user._id)
     console.log('👤 Selected user:', user.name)
   }
 
@@ -193,6 +192,12 @@ export const useUsersList = (): UseUsersListReturn => {
       error.value = err instanceof Error ? err.message : 'Failed to initialize socket'
       console.error('❌ Failed to initialize admin socket:', err)
     }
+  }
+
+  // Helper: Get unread count for a user (stub implementation)
+  const getUnreadCount = (userId: string): number => {
+    // TODO: Replace with actual unread count logic
+    return 0
   }
 
   // Initialize on mount
