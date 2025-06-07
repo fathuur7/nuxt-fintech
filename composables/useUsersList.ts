@@ -43,7 +43,6 @@ export const useUsersList = (): UseUsersListReturn => {
   // Dependencies
   const { $socket } = useNuxtApp()
   const { fetchUserData, getUserId } = useProfile()
-  const { setSelectedUser, getUnreadCount } = useChat()
   const { users: usersData, loading: usersLoading, error: usersError, fetchUsers: fetchUsersData } = useUsers()
 
   // Methods
