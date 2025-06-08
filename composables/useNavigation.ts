@@ -12,6 +12,10 @@ export const useNavigation = () => {
       path: '/topup',
       label: 'Top Up Saldo'
     },
+    {
+      path: '/savings',
+      label: 'Simpanan'
+    },
   ]
   return {
     navigationLinks

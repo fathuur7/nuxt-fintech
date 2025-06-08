@@ -1,3 +1,4 @@
+// Method: GET api/user/:userId/transactions
 import { Transaction } from '~/server/models/Transaction'
 
 export default defineEventHandler(async (event) => {

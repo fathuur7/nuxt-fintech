@@ -142,10 +142,7 @@
               Jika Anda mengalami masalah atau memiliki pertanyaan tentang transaksi ini
             </p>
             <div class="flex space-x-3">
-              <button class="flex-1 bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors">
-                Live Chat
-              </button>
-              <button class="flex-1 bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors">
+              <button @click="gotoHelp" class="flex-1 bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors">
                 Hubungi Kami
               </button>
             </div>
@@ -168,6 +165,10 @@ definePageMeta({
 // Composables
 const { user, fetchUserData } = useProfile()
 const route = useRoute()
+
+const gotoHelp = () => {
+  navigateTo('/chat')
+}
 
 // Reactive data
 const loading = ref(true)

@@ -20,6 +20,9 @@ const transactionSchema = new mongoose.Schema({
     enum: ['pending', 'success', 'failed', 'expired'],
     default: 'pending'
   },
+  type: {
+    type: String,
+  },
   transactionId: String,
   paymentType: String,
   snapToken: String,
