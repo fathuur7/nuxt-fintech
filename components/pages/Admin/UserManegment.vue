@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-6">
-    <div class="max-w-6xl mx-auto">
+  <div class="min-h-screen bg-gray-50">
+    <div class="">
       <!-- Header -->
       <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
         <h1 class="text-2xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
@@ -171,7 +171,7 @@
     </div>
   </div>
 </template>
-
+<!-- SCRIPT FOR TAKE USERS OFLINE OR NOT -->
 <script setup lang="ts">
 import type { User } from '~/types/user';
 
@@ -342,7 +342,7 @@ const initializeAdminSocket = async () => {
       console.error('❌ No admin user ID available');
       return;
     }
-
+    
     console.log('🔄 Initializing admin socket for user:', adminUserId);
     
     // Set admin user as online
@@ -418,7 +418,7 @@ const initializeAdminSocket = async () => {
           timestamp: data.timestamp
         });
       });
-
+      
       // Generic status change listener
       socket.on('status-changed', (data) => {
         console.log('🔄 Status changed:', data);
