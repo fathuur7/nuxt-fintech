@@ -9,15 +9,10 @@ export const useNavigation = () => {
       label: 'Transaksi'
     },
     {
-      path: '/portfolio',
-      label: 'Portfolio'
+      path: '/topup',
+      label: 'Top Up Saldo'
     },
-    {
-      path: '/analytics',
-      label: 'Analytics'
-    }
   ]
-
   return {
     navigationLinks
   }

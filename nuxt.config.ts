@@ -19,8 +19,8 @@ export default defineNuxtConfig({
     arrayEmailAdmin: process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [''],
 
     // Server-side environment variables
-    jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
-    jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'your-refresh-secret',
+    jwtSecret: process.env.JWT_SECRET,
+    jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
     dbUrl: process.env.DATABASE_URL,
 
     mongoUri: process.env.MONGODB_URI,
@@ -34,20 +34,20 @@ export default defineNuxtConfig({
     // Payment Gateway Config
     midtransServerKey: process.env.MIDTRANS_SERVER_KEY,
     midtransClientKey: process.env.MIDTRANS_CLIENT_KEY,
-    xenditSecretKey: process.env.XENDIT_SECRET_KEY,
+    
     
     // Multi-domain config
     domains: {
-      main: process.env.MAIN_DOMAIN || 'fintech.local',
-      admin: process.env.ADMIN_DOMAIN || 'admin.fintech.local',
-      api: process.env.API_DOMAIN || 'api.fintech.local'
+      main: process.env.MAIN_DOMAIN,
+      admin: process.env.ADMIN_DOMAIN,
+      api: process.env.API_DOMAIN
     },
 
     public: {
       // Client-side accessible
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
       googleClientId: process.env.GOOGLE_CLIENT_ID,
-      appDomain: 'localhost:3000',
+      appDomain: 'http://localhost:3000',
       adminDomain: 'localhost:3001',
       mainDomain: 'localhost:3000'
     }

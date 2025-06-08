@@ -48,7 +48,7 @@
         <div v-else class="message-item received">
           <div class="message-bubble received-bubble">
             <div class="message-header">
-              <span class="sender-name">{{ getUserName(message.senderId) }}</span>
+              <span class="sender-name">{{ getUserName(typeof message.senderId === 'string' ? message.senderId : message.senderId._id) }}</span>
             </div>
             <div class="message-content">{{ message.content }}</div>
             <div class="message-time">
@@ -105,8 +105,7 @@ const {
   isConnected,
   currentUser,
   sendMessage,
-  retryConnection,
-  getUserById
+  retryConnection
 } = useChat(userId.value)
 
 // Local state
@@ -139,15 +138,14 @@ const formatTime = (dateString?: string) => {
   })
 }
 
+// const getUserName = (senderId: string) => {
 const getUserName = (senderId: string) => {
   if (senderId === userId.value) {
     return `User ${userId.value}`
   }
-  // You can enhance this to get actual user names from your user store/API
-  const user = getUserById?.(senderId)
-  return user?.name || user?.username || `User ${senderId.slice(-4)}`
+  // Fallback: show last 4 chars of senderId
+  return `User ${senderId.slice(-4)}`
 }
-
 const scrollToBottom = () => {
   const container = document.querySelector('.messages-container')
   if (container) {

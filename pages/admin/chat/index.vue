@@ -83,7 +83,7 @@
                 <img :src="user.picture" :alt="user.name" class="w-full h-full object-cover">
               </div>
               <div v-else class="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                {{ getInitials(user.name || user.email) }}
+                {{ getInitials(user.name || user.email || '') }}
               </div>
               
               <!-- Online Status Indicator -->

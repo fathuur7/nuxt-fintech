@@ -6,5 +6,11 @@ export const debugEnv = () => {
   console.log(`redirect_uri: ${config.googleRedirectUri}`)
   console.log(`mongoUri: ${config.mongoUri}`)
   console.log(`jwtSecret: ${config.jwtSecret}`)
-  console.groupEnd()
+  console.log(`jwtRefreshSecret: ${config.jwtRefreshSecret}`)
+  console.log(`midtransServerKey: ${config.midtransServerKey}`)
+  console.log(`midtransClientKey: ${config.midtransClientKey}`)
+  console.log(`mainDomain: ${config.domains.main}`)
+  console.log(`domains.admin: ${config.domains.admin}`)
+  console.log(`domains.api: ${config.domains.api}`)
+  console.log(`public.apiBase: ${config.public.appDomain}`)
 }
