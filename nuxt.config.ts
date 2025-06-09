@@ -55,7 +55,8 @@ export default defineNuxtConfig({
 
   plugins: [
     // '~/server/plugins/socket.ts' ,
-    { src: '~/plugins/socket.client.ts', mode: 'client' }, // '~/plugins/socket.client.ts' 
+    { src: '~/plugins/socket.client.ts', mode: 'client' }, // '~/plugins/socket.client.ts'
+    { src: '~/plugins/vue-toast-notification.client.ts', mode: 'client' }
   ],
 
   // Route rules

@@ -1,15 +1,14 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 md:py-8 px-4">
     <!-- Desktop Layout Container -->
-    <div class="max-w-6xl mx-auto">
+    <div class="max-w-6xl mx-auto px-4 sm:px-12 lg:px-8 py-8 lg:py-12">
       <!-- Loading State -->
       <div v-if="userLoading" class="flex items-center justify-center min-h-[400px] md:min-h-[600px]">
         <div class="text-center">
-          <svg class="animate-spin h-12 w-12 md:h-16 md:w-16 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <svg class="animate-spin h-12 w-12 md:h-16 md:w-16 text-gray-900 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p class="text-gray-600 text-lg">Memuat data pengguna...</p>
+          <p class="text-gray-900 text-lg">Memuat data pengguna...</p>
         </div>
       </div>
 
@@ -19,7 +18,7 @@
         <!-- Left Column: Header & User Info (Mobile: Full Width, Desktop: 1/3) -->
         <div class="lg:col-span-1">
           <!-- Header -->
-          <div class="text-center lg:text-left mb-6 lg:mb-8">
+          <div class="text-center lg:text-left mb-6 lg:mb-8 bg-white rounded-2xl lg:rounded-3xl shadow-lg p-6 lg:p-8">
             <div class="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-blue-600 rounded-full mb-4">
               <svg class="w-8 h-8 md:w-10 md:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -221,7 +220,6 @@
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <script setup>
@@ -230,7 +228,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 // Meta
 definePageMeta({
   title: 'Top Up Saldo',
-  middleware: 'auth'
+  middleware: 'auth',
+  layout:'global'
 })
 
 // Composables

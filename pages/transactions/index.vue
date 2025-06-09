@@ -1,11 +1,10 @@
 <!-- transaksi page -->
 <template>
-  <div class="min-h-screen bg-gray-50 py-6">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
-      <div class="mb-8">
+      <div class="mb-8 bg-white rounded-lg shadow-sm p-6 border border-gray-200">
         <h1 class="text-3xl font-bold text-gray-900">Transaksi</h1>
-        <p class="mt-2 text-gray-600">Kelola dan pantau riwayat transaksi Anda</p>
+        <p class="mt-2 text-gray-800">Kelola dan pantau riwayat transaksi Anda</p>
       </div>
 
       <!-- Balance Card -->
@@ -134,7 +133,7 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <span :class="transaction.type === 'debit' ? 'text-red-600' : 'text-green-600'">
-                    {{ transaction.type === 'debit' ? '-' : '+' }}Rp {{ formatCurrency(transaction.amount) }}
+                   Rp {{ formatCurrency(transaction.amount) }}
                   </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
@@ -191,7 +190,6 @@
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -215,6 +213,7 @@ interface UserBalance {
 definePageMeta({
   middleware: 'auth',
   title: 'Transaksi',
+  layout: 'global',
   meta: [
     { name: 'description', content: 'Halaman transaksi untuk melihat riwayat transaksi Anda.' },
     { name: 'keywords', content: 'transaksi, riwayat, pembayaran' }
@@ -242,6 +241,8 @@ const currentPage = ref(1)
 const totalPages = ref(1)
 const totalTransactions = ref(0)
 const limit = 10
+
+console.log('transactions page mounted', transactions)
 
 // Cache for faster subsequent loads
 const dataCache = ref<{
@@ -300,7 +301,7 @@ const fetchTransactions = async (page: number = 1, useCache: boolean = true) => 
       totalPages.value = response.data.totalPages
       currentPage.value = response.data.currentPage
       totalTransactions.value = response.data.total
-
+      console.log('Transactions fetched:', response.data.transactions)
       // Update cache for first page
       if (page === 1) {
         dataCache.value = {
@@ -346,7 +347,7 @@ const fetchBalance = async (useCache: boolean = true) => {
 
     if (response.success && response.data) {
       balance.value = response.data.balance
-
+      console.log('Balance fetched:', response.data.balance)
       // Update cache
       dataCache.value = {
         transactions: dataCache.value?.transactions ?? [],
@@ -428,11 +429,7 @@ const getTypeLabel = (type: string): string => {
 }
 
 const getTypeClass = (type: string): string => {
-  const classes: Record<string, string> = {
-    'topup': 'px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full',
-    'withdraw': 'px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full'
-  }
-  return classes[type] || 'px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full'
+  return 'px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full'
 }
 
 const getStatusLabel = (status: string): string => {

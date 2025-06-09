@@ -1,5 +1,4 @@
-import { Message } from '@/server/models/Message'
-import mongoose from 'mongoose'
+import { Message } from '~/server/models/Message';
 
 export default defineEventHandler(async (event) => {
   try {
@@ -25,7 +24,7 @@ export default defineEventHandler(async (event) => {
     .populate('senderId', 'name email avatar')
     .sort({ createdAt: -1 })
     .limit(20)
-
+    
     return {
       success: true,
       data: {
