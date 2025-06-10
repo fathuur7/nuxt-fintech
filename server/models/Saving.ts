@@ -150,7 +150,7 @@ const interestCalculationSchema = new mongoose.Schema({
 
 // Indexes untuk performa
 savingsAccountSchema.index({ userId: 1 })
-savingsAccountSchema.index({ accountNumber: 1 })
+// savingsAccountSchema.index({ accountNumber: 1 })
 savingsTransactionSchema.index({ accountId: 1, createdAt: -1 })
 interestCalculationSchema.index({ accountId: 1, calculationDate: -1 })
 
