@@ -8,7 +8,7 @@
       </div>
 
       <!-- Debug Info (Remove in production) -->
-      <div class="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl backdrop-blur-sm">
+      <!-- <div class="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl backdrop-blur-sm">
         <h3 class="font-medium text-yellow-400 mb-2">🔧 Debug Info:</h3>
         <div class="text-sm text-yellow-300 space-y-1">
           <p>User ID: <span class="font-mono">{{ debugUserId }}</span></p>
@@ -16,7 +16,7 @@
           <p>Selected Account: <span class="font-mono">{{ selectedAccountId }}</span></p>
           <p>Error: <span class="font-mono">{{ errorMessage }}</span></p>
         </div>
-      </div>
+      </div> -->
 
       <!-- User Accounts Overview -->
       <div class="mb-8">
@@ -219,7 +219,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup >
 const { fetchUserData, getUserId } = useProfile();
 const { $socket } = useNuxtApp()
 
