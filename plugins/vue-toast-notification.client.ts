@@ -1,8 +1,13 @@
-import 'vue-toast-notification/dist/theme-sugar.css'
+// plugins/toast.client.js
 import { useToast } from 'vue-toast-notification'
-import { defineNuxtPlugin } from '#app'
+import 'vue-toast-notification/dist/theme-sugar.css'
 
-export default defineNuxtPlugin((nuxtApp) => {
+export default defineNuxtPlugin(() => {
   const toast = useToast()
-  nuxtApp.provide('toast', toast)
+  
+  return {
+    provide: {
+      toast: toast
+    }
+  }
 })

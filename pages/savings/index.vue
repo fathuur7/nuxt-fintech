@@ -312,8 +312,9 @@
 </template>
 
 <script setup>
+
 // Import required composables and utilities
-const toast = useNuxtApp().$toast
+const notification = useNotification()
 
 // SEO Meta
 useHead({
@@ -484,8 +485,8 @@ const submitAccountOpening = async () => {
     }
 
     // Tampilkan notifikasi berhasil (gunakan toast kalau ada)
-    toast(`🎉 Rekening ${selectedProduct.value.name} berhasil dibuka!`)
-    
+    notification.success(`🎉 Rekening ${selectedProduct.value.name} berhasil dibuka!`)
+        
     // Tutup modal
     closeModal()
 

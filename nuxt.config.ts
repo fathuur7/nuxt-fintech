@@ -77,6 +77,7 @@ export default defineNuxtConfig({
   // CSS framework
   // css: ['~/assets/css/main.css'],
   modules: ['@nuxtjs/tailwindcss'],
+  css: ['vue-toast-notification/dist/theme-sugar.css'],
 
   // Build configuration
   build: {

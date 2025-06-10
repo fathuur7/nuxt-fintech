@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen">
     <div class="">
       <!-- Header -->
       <div class="bg-white rounded-lg shadow-sm p-6 mb-6">

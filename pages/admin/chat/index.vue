@@ -1,6 +1,6 @@
 <!-- AdminChatDashboard.vue -->
 <template>
-  <div class="chat-container min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
+  <div class="chat-container min-h-screen">
     <!-- Header -->
     <div class="bg-white rounded-xl shadow-lg mb-6 p-6">
       <div class="flex items-center justify-between">
