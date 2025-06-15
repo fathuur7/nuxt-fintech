@@ -19,6 +19,10 @@ export const useNavigation = () => {
     {
       path: '/tracking',
       label: 'Tracking Simpanan'
+    },
+    {
+      path: '/deposit',
+      label: 'Deposit dan Withdraw'
     }
   ]
   return {
