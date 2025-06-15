@@ -155,37 +155,81 @@ savingsTransactionSchema.index({ accountId: 1, createdAt: -1 })
 interestCalculationSchema.index({ accountId: 1, calculationDate: -1 })
 
 // Methods untuk SavingsAccount
-savingsAccountSchema.methods.calculateInterest = function(days = 1) {
-  // Implementasi perhitungan bunga
-  const dailyRate = this.productId.interestRate / 365 / 100
-  return this.balance * dailyRate * days
-}
-savingsAccountSchema.methods.addInterest = async function(this: ISavingsAccount, interestAmount: number): Promise<ISavingsAccount> {
-    this.interestAccrued += interestAmount
-    this.lastInterestCalculation = new Date()
-    return await this.save()
+savingsAccountSchema.methods.calculateInterest = function(minutes = 1) {
+  if (!this.productId || !this.productId.interestRate) {
+    throw new Error('Product or interest rate not available')
+  }
+  
+  // Convert minutes to daily equivalent for calculation
+  // Assuming interest rate is annual percentage
+  const annualRate = this.productId.interestRate / 100
+  const minutesPerYear = 365 * 24 * 60 // 525,600 minutes per year
+  const minuteRate = annualRate / minutesPerYear
+  
+  return this.balance * minuteRate * minutes
 }
 
-savingsAccountSchema.methods.applyInterest = async function() {
-  if (this.interestAccrued > 0) {
-    this.balance += this.interestAccrued
-    
-    // Catat transaksi bunga
-    const SavingsTransaction = mongoose.model('SavingsTransaction')
-    await new SavingsTransaction({
-      accountId: this._id,
-      type: 'interest',
-      amount: this.interestAccrued,
-      balanceBefore: this.balance - this.interestAccrued,
-      balanceAfter: this.balance,
-      description: 'Interest payment'
-    }).save()
-    
-    this.interestAccrued = 0
-    return await this.save()
+savingsAccountSchema.methods.addInterest = async function(interestAmount: number) {
+  this.interestAccrued += interestAmount
+  this.lastInterestCalculation = new Date()
+  return await this.save()
+}
+
+savingsAccountSchema.methods.applyAccruedInterest = async function() {
+  if (this.interestAccrued <= 0) {
+    throw new Error(`No accrued interest to apply. Current: ${this.interestAccrued}`)
+  }
+
+  const balanceBefore = this.balance
+  const interestToApply = this.interestAccrued
+  
+  // Apply interest to balance
+  this.balance += interestToApply
+  this.interestAccrued = 0
+  
+  // Save the account
+  await this.save()
+  
+  // Create transaction record
+  const SavingsTransaction = mongoose.model('SavingsTransaction')
+  await new SavingsTransaction({
+    accountId: this._id,
+    type: 'interest',
+    amount: interestToApply,
+    balanceBefore,
+    balanceAfter: this.balance,
+    description: 'Interest payment applied'
+  }).save()
+  
+  return {
+    balanceBefore,
+    balanceAfter: this.balance,
+    interestApplied: interestToApply
   }
 }
 
+// Method to calculate and add interest in one go
+savingsAccountSchema.methods.calculateAndAccrueInterest = async function(minutes = 1) {
+  const interestAmount = this.calculateInterest(minutes)
+  
+  if (interestAmount > 0) {
+    await this.addInterest(interestAmount)
+    
+    // Log the calculation
+    const InterestCalculation = mongoose.model('InterestCalculation')
+    await new InterestCalculation({
+      accountId: this._id,
+      calculationDate: new Date(),
+      principalAmount: this.balance,
+      interestRate: this.productId.interestRate,
+      daysCalculated: minutes,
+      interestAmount,
+      status: 'calculated'
+    }).save()
+  }
+  
+  return interestAmount
+}
 
 // Export models
 export const SavingsProduct = mongoose.models.SavingsProduct || 

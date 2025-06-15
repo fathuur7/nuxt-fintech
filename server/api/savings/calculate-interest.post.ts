@@ -1,5 +1,4 @@
-import { SavingsAccount } from '@/server/models/Saving'
-import { InterestCalculation } from '@/server/models/Saving'
+import { SavingsAccount, SavingsTransaction, InterestCalculation } from '@/server/models/Saving'
 
 export default defineEventHandler(async (event) => {
   try {

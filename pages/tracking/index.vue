@@ -44,6 +44,11 @@
             <p class="text-red-300">❌ Error: {{ errorMessage }}</p>
           </div>
 
+          <!-- Success Message -->
+          <div v-if="successMessage" class="mb-6 p-4 bg-green-500/20 border border-green-500/40 rounded-xl backdrop-blur-sm">
+            <p class="text-green-300">✅ {{ successMessage }}</p>
+          </div>
+
           <div v-if="loadingUserAccounts" class="flex justify-center py-12">
             <div class="animate-spin rounded-full h-12 w-12 border-4 border-white/30 border-t-white"></div>
           </div>
@@ -97,6 +102,19 @@
             </h2>
             <div class="flex gap-3">
               <button 
+                @click="applyInterestToAccount"
+                :disabled="applyingInterest"
+                class="px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-lg"
+              >
+                <span v-if="applyingInterest" class="flex items-center gap-2">
+                  <div class="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white"></div>
+                  Applying...
+                </span>
+                <span v-else class="flex items-center gap-2">
+                  💎 Apply Interest
+                </span>
+              </button>
+              <button 
                 @click="toggleAutoRefresh"
                 :class="autoRefresh ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' : 'bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800'"
                 class="px-4 py-2 text-white rounded-xl text-sm font-medium transition-all duration-200 shadow-lg"
@@ -147,6 +165,43 @@
                   🎯 Total Interest
                 </h3>
                 <p class="text-3xl font-bold text-white">Rp {{ formatCurrency(accountDetails.totalAccruedInterest) }}</p>
+              </div>
+            </div>
+
+            <!-- Interest Application Section -->
+            <div class="bg-gradient-to-br from-emerald-500/10 to-green-600/5 backdrop-blur-sm p-6 rounded-xl border border-emerald-500/20">
+              <h3 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                💎 Interest Management
+              </h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-300">Ready to Apply:</span>
+                    <span class="font-bold text-emerald-300 text-lg">Rp {{ formatCurrency(accountDetails.interestAccrued) }}</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-300">Interest Rate:</span>
+                    <span class="font-semibold text-blue-300">{{ accountDetails.productId?.interestRate || 0 }}% annually</span>
+                  </div>
+                </div>
+                <div class="flex flex-col justify-center">
+                  <button 
+                    @click="applyInterestToAccount"
+                    :disabled="applyingInterest || (accountDetails.interestAccrued || 0) <= 0"
+                    class="w-full px-6 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-lg text-lg"
+                  >
+                    <span v-if="applyingInterest" class="flex items-center justify-center gap-2">
+                      <div class="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white"></div>
+                      Applying Interest...
+                    </span>
+                    <span v-else class="flex items-center justify-center gap-2">
+                      💎 Apply Interest to Balance
+                    </span>
+                  </button>
+                  <p class="text-sm text-gray-400 mt-2 text-center">
+                    {{ (accountDetails.interestAccrued || 0) <= 0 ? 'No interest available to apply' : 'Add accrued interest to your balance' }}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -229,10 +284,72 @@ const accountDetails = ref(null)
 const selectedAccountId = ref(null)
 const loadingUserAccounts = ref(false)
 const loadingAccountDetails = ref(false)
+const applyingInterest = ref(false)
 const autoRefresh = ref(false)
 const refreshInterval = ref(null)
 const errorMessage = ref('')
+const successMessage = ref('')
 const debugUserId = ref('')
+
+// Apply interest function
+async function applyInterest(accountId) {
+  try {
+    // First, calculate interest
+    const calcResult = await $fetch(`/api/savings/calculate-interest/${accountId}`, {
+      method: 'POST'
+    })
+    
+    if (calcResult.success) {
+      // Then apply the calculated interest
+      const applyResult = await $fetch(`/api/savings/accounts/${accountId}/applyInterest`, {
+        method: 'POST'
+      })
+      return applyResult
+    }
+  } catch (error) {
+    console.error('Error applying interest:', error)
+    throw error
+  }
+}
+// Apply interest to selected account
+const applyInterestToAccount = async () => {
+  if (!selectedAccountId.value) {
+    errorMessage.value = 'No account selected'
+    return
+  }
+
+  try {
+    applyingInterest.value = true
+    errorMessage.value = ''
+    successMessage.value = ''
+
+    console.log('Applying interest to account:', selectedAccountId.value)
+    
+    const result = await applyInterest(selectedAccountId.value)
+    
+    console.log('Apply interest result:', result)
+    
+    // Show success message
+    successMessage.value = 'Interest applied successfully!'
+    
+    // Refresh account details to show updated values
+    await fetchAccountDetails(selectedAccountId.value)
+    
+    // Refresh user accounts list to show updated balance
+    await fetchUserAccounts()
+    
+    // Clear success message after 5 seconds
+    setTimeout(() => {
+      successMessage.value = ''
+    }, 5000)
+    
+  } catch (error) {
+    console.error('Error applying interest:', error)
+    errorMessage.value = `Failed to apply interest: ${error.message || 'Unknown error'}`
+  } finally {
+    applyingInterest.value = false
+  }
+}
 
 // Fetch user accounts
 const fetchUserAccounts = async () => {
