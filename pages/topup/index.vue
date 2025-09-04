@@ -242,29 +242,26 @@ const amountError = ref('')
 
 const quickAmounts = [50000, 100000, 200000, 500000, 1000000, 2000000]
 
-const { getUserId } = useProfile();
-const { $socket } = useNuxtApp()
+const { getUserId } = useProfile()
+const { updatePresence } = useSupabaseRealtime()
 
-// Login dan set online
+// Set user online in presence
 onMounted(async () => {
   await fetchUserData()
   
-  // Set user online after data is fetched
+  // Set user online in presence after data is fetched
   const userId = getUserId()
   if (userId) {
-    console.log('🔄 Initializing socket for user:', userId)
-    await $socket.setUserOnline(userId)
+    console.log('🔄 Setting user online in presence:', userId)
+    await updatePresence('online')
   } else {
-    console.error('❌ No user ID available for socket connection')
+    console.error('❌ No user ID available for presence')
   }
 })
 
-// Set user offline when component is unmounted
+// Set user offline in presence when component is unmounted
 onUnmounted(() => {
-  const userId = getUserId()
-  if (userId) {
-    $socket.setUserOffline(userId)
-  }
+  updatePresence('offline').catch(console.error)
 })
 
 // Computed

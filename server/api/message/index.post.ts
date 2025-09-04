@@ -1,5 +1,4 @@
-import { Message } from '@/server/models/Message'
-import mongoose from 'mongoose'
+import { supabase } from '~/lib/supabase'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -14,46 +13,45 @@ export default defineEventHandler(async (event) => {
     }
 
     const messageData: any = {
-      senderId,
-      receiverId,
+      sender_id: senderId,
+      receiver_id: receiverId,
       content,
-      messageType,
+      message_type: messageType,
       status: 'sent'
     }
 
     if (attachmentUrl) {
-      messageData.attachmentUrl = attachmentUrl
-      messageData.attachmentType = attachmentType
-      messageData.attachmentSize = attachmentSize
+      messageData.attachment_url = attachmentUrl
+      messageData.attachment_type = attachmentType
+      messageData.attachment_size = attachmentSize
     }
 
-    const message = new Message(messageData)
-    await message.save()
+    const { data: message, error } = await supabase
+      .from('messages')
+      .insert(messageData)
+      .select(`
+        *,
+        sender:users!sender_id(id, username, email, avatar_url),
+        receiver:users!receiver_id(id, username, email, avatar_url)
+      `)
+      .single()
 
-    await message.populate('senderId', 'name email avatar')
-    await message.populate('receiverId', 'name email avatar')
-
-    // Emit real-time event
-    const io = event.context.io
-    if (io) {
-      // Send to specific user room
-      io.to(`user_${receiverId}`).emit('new_message', {
-        message,
-        senderId
-      })
-      
-      // Send to conversation room
-      io.to(`conversation_${[senderId, receiverId].sort().join('_')}`).emit('message_sent', message)
+    if (error) {
+      throw error
     }
+
+    // Real-time updates are handled automatically by Supabase Realtime
+    console.log('📨 Message sent via Supabase:', message)
 
     return {
       success: true,
       data: message
     }
   } catch (error) {
+    console.error('Error sending message:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: typeof error === 'object' && error !== null && 'message' in error ? (error as any).message : 'Internal Server Error'
+      statusMessage: error instanceof Error ? error.message : 'Internal Server Error'
     })
   }
 })

@@ -1,163 +1,117 @@
-// server/utils/savings.ts
-export const generateAccountNumber = (): string => {
-  return 'SAV' + Date.now() + Math.random().toString(36).substr(2, 4).toUpperCase()
-}
-
-// types/savings.ts
-export interface SavingsProduct {
-  _id: string
-  name: string
-  interestRate: number
-  minBalance: number
-  maxBalance?: number
-  compoundPeriod: 'daily' | 'monthly' | 'quarterly' | 'annually'
-  description?: string
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface SavingsAccount {
-  _id: string
-  userId: string
-  productId: string | SavingsProduct
-  accountNumber: string
-  balance: number
-  interestAccrued: number
-  lastInterestCalculation: Date
-  status: 'active' | 'dormant' | 'closed'
-  openDate: Date
-  closeDate?: Date
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface SavingsTransaction {
-  _id: string
-  accountId: string
-  type: 'deposit' | 'withdrawal' | 'interest' | 'fee'
-  amount: number
-  balanceBefore: number
-  balanceAfter: number
-  description?: string
-  reference?: string
-  processedBy?: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface InterestCalculation {
-  _id: string
-  accountId: string
-  calculationDate: Date
-  principalAmount: number
-  interestRate: number
-  daysCalculated: number
-  interestAmount: number
-  status: 'calculated' | 'applied'
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface ApiResponse<T = any> {
-  success: boolean
-  message?: string
-  data?: T
-}
-
-// composables/useSavings.ts
+import type { Database } from '~/lib/supabase'
+type SavingsProduct = Database['public']['Tables']['savings_products']['Row']
+type SavingsAccount = Database['public']['Tables']['savings_accounts']['Row']
+type SavingsTransaction = Database['public']['Tables']['savings_transactions']['Row']
 export const useSavings = () => {
-  // Create product
-  const createProduct = async (productData: Partial<SavingsProduct>) => {
-    const { data } = await $fetch<ApiResponse<SavingsProduct>>('/api/savings/products', {
-      method: 'POST',
-      body: productData
-    })
-    return data
-  }
-  
+  const { 
+    getSavingsProducts,
+    createSavingsAccount,
+    getUserSavingsAccounts,
+    getSavingsAccountDetails,
+    depositToSavings,
+    withdrawFromSavings,
+    calculateAndApplyInterest,
+    getSavingsTransactions
+  } = useSupabaseSavings()
   // Get all products
   const getProducts = async () => {
-    const { data } = await $fetch<ApiResponse<SavingsProduct[]>>('/api/savings/products')
-    return data
+    try {
+      return await getSavingsProducts()
+    } catch (error) {
+      console.error('Error getting products:', error)
+      throw error
+    }
   }
   
   // Create account
   const createAccount = async (accountData: {
-    userId: string
     productId: string
     initialDeposit?: number
   }) => {
-    const { data } = await $fetch<ApiResponse<SavingsAccount>>('/api/savings/accounts', {
-      method: 'POST',
-      body: accountData
-    })
-    return data
+    try {
+      return await createSavingsAccount(accountData.productId, accountData.initialDeposit)
+    } catch (error) {
+      console.error('Error creating account:', error)
+      throw error
+    }
   }
   
   // Get user accounts
   const getUserAccounts = async (userId: string) => {
-    const { data } = await $fetch<ApiResponse<SavingsAccount[]>>(`/api/savings/accounts/user/${userId}`)
-    return data
+    try {
+      return await getUserSavingsAccounts(userId)
+    } catch (error) {
+      console.error('Error getting user accounts:', error)
+      throw error
+    }
   }
   
   // Deposit
   const deposit = async (accountId: string, amount: number, description?: string) => {
-    const { data } = await $fetch<ApiResponse>(`/api/savings/accounts/${accountId}/deposit`, {
-      method: 'POST',
-      body: { amount, description }
-    })
-    return data
+    try {
+      return await depositToSavings(accountId, amount, description)
+    } catch (error) {
+      console.error('Error making deposit:', error)
+      throw error
+    }
   }
   
   // Withdraw
   const withdraw = async (accountId: string, amount: number, description?: string) => {
-    const { data } = await $fetch<ApiResponse>(`/api/savings/accounts/${accountId}/withdraw`, {
-      method: 'POST',
-      body: { amount, description }
-    })
-    return data
-  }
-  
-  // Calculate interest
-  const calculateInterest = async () => {
-    const { data } = await $fetch<ApiResponse>('/api/savings/calculate-interest', {
-      method: 'POST'
-    })
-    return data
+    try {
+      return await withdrawFromSavings(accountId, amount, description)
+    } catch (error) {
+      console.error('Error making withdrawal:', error)
+      throw error
+    }
   }
   
   // Apply interest
   const applyInterest = async (accountId: string) => {
-    const { data } = await $fetch<ApiResponse>(`/api/savings/accounts/${accountId}/apply-interest`, {
-      method: 'POST'
-    })
-    return data
+    try {
+      return await calculateAndApplyInterest(accountId)
+    } catch (error) {
+      console.error('Error applying interest:', error)
+      throw error
+    }
   }
   
   // Get account details
   const getAccountDetails = async (accountId: string) => {
-    const { data } = await $fetch<ApiResponse<SavingsAccount>>(`/api/savings/accounts/${accountId}`)
-    return data
+    try {
+      return await getSavingsAccountDetails(accountId)
+    } catch (error) {
+      console.error('Error getting account details:', error)
+      throw error
+    }
   }
   
   // Get transactions
   const getTransactions = async (accountId: string, page = 1, limit = 20) => {
-    const { data } = await $fetch<ApiResponse<{
-      transactions: SavingsTransaction[]
-      pagination: any
-    }>>(`/api/savings/accounts/${accountId}/transactions?page=${page}&limit=${limit}`)
-    return data
+    try {
+      const offset = (page - 1) * limit
+      const transactions = await getSavingsTransactions(accountId, limit, offset)
+      
+      return {
+        transactions,
+        pagination: {
+          page,
+          limit,
+          total: transactions?.length || 0
+        }
+      }
+    } catch (error) {
+      console.error('Error getting transactions:', error)
+      throw error
+    }
   }
   
   return {
-    createProduct,
     getProducts,
     createAccount,
     getUserAccounts,
     deposit,
     withdraw,
-    calculateInterest,
     applyInterest,
     getAccountDetails,
     getTransactions

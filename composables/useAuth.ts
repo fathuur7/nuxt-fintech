@@ -1,32 +1,26 @@
 export function useAuth() {
-  const token = useCookie('token')
-  const userRaw = useCookie('user')
-  const user = computed(() => {
-    try {
-      return userRaw.value ? JSON.parse(userRaw.value) : null
-    } catch {
-      return null
-    }
-  })
-  const isLoggedIn = computed(() => !!token.value)
+  const { user, session, loading, signInWithGoogle, signOut, getCurrentUserId } = useSupabaseAuth()
+  const { updatePresence } = useSupabaseRealtime()
+  
+  const isLoggedIn = computed(() => !!session.value)
 
-  const loginWithGoogle = () => {
-    window.location.href = '/api/auth/google'
+  const loginWithGoogle = async () => {
+    try {
+      await signInWithGoogle()
+    } catch (error) {
+      console.error('Login error:', error)
+      throw error
+    }
   }
 
-  // Initialize socket connection when user is authenticated
-  const initializeSocket = async () => {
-    if (process.client && user.value?._id) {
-      const { $socket } = useNuxtApp()
+  // Initialize realtime connection when user is authenticated
+  const initializeRealtime = async () => {
+    if (process.client && user.value?.id) {
       try {
-        const result = await $socket.setUserOnline(user.value._id)
-        if (result) {
-          console.log('✅ Socket initialized for authenticated user')
-        } else {
-          console.warn('⚠️ setUserOnline returned false')
-        }
+        await updatePresence('online')
+        console.log('✅ Realtime initialized for authenticated user')
       } catch (error) {
-        console.error('❌ Failed to initialize socket:', error)
+        console.error('❌ Failed to initialize realtime:', error)
       }
     }
   }
@@ -35,56 +29,33 @@ export function useAuth() {
     try {
       console.log('🔄 Starting logout process...')
       
-      // Get current user ID before clearing cookies
-      const currentUserId = user.value?._id
-      
-      // Set user offline via socket FIRST
-      if (currentUserId && process.client) {
-        const { $socket } = useNuxtApp()
-        // Use $socket.setUserOffline directly as it returns void
-        if ($socket && typeof $socket.setUserOffline === 'function') {
-          console.log(`🔴 Setting user ${currentUserId} offline via socket`)
-          $socket.setUserOffline(currentUserId)
-          
-          // Give a moment for the offline message to be sent
-          await new Promise(resolve => setTimeout(resolve, 100))
+      // Set user offline in presence
+      if (process.client && user.value?.id) {
+        try {
+          await updatePresence('offline')
+          console.log('🔴 User set offline in presence')
+        } catch (error) {
+          console.warn('⚠️ Failed to update presence on logout:', error)
         }
       }
       
-      // Clear cookies/session
-      const userCookie = useCookie('user')
-      const tokenCookie = useCookie('token')
-      
-      userCookie.value = null
-      tokenCookie.value = null
-      
-      // Call backend logout API if exists
-      try {
-        await $fetch('/api/auth/logout', { 
-          method: 'POST',
-          // Don't throw on 401/403 errors since we're logging out anyway
-          ignoreResponseError: true
-        })
-        console.log('✅ Backend logout completed')
-      } catch (error) {
-        console.warn('⚠️ Backend logout failed (this is usually fine):', error)
-      }
-      
+      // Sign out from Supabase
+      await signOut()
       console.log('✅ User logged out successfully')
       
       // Redirect to login
-      await navigateTo('auth/login')
+      await navigateTo('/auth/login')
     } catch (error) {
       console.error('❌ Logout error:', error)
       // Even if logout fails, redirect to login page
-      await navigateTo('auth/login')
+      await navigateTo('/auth/login')
     }
   }
 
-  // Auto-initialize socket when auth state changes
+  // Auto-initialize realtime when auth state changes
   watch(isLoggedIn, async (newValue) => {
-    if (newValue && user.value?._id) {
-      await initializeSocket()
+    if (newValue && user.value?.id) {
+      await initializeRealtime()
     }
   }, { immediate: true })
 
@@ -93,6 +64,9 @@ export function useAuth() {
     isLoggedIn,
     loginWithGoogle,
     user: readonly(user),
-    initializeSocket
+    session: readonly(session),
+    loading: readonly(loading),
+    initializeRealtime,
+    getCurrentUserId
   }
 }

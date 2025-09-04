@@ -1,5 +1,4 @@
-// Method: GET api/user/:userId/transactions
-import { Transaction } from '~/server/models/Transaction'
+import { supabase } from '~/lib/supabase'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -15,21 +14,25 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const transactions = await Transaction.find({ userId })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .skip((page - 1) * limit)
-      .exec()
+    const offset = (page - 1) * limit
 
-    const total = await Transaction.countDocuments({ userId })
+    const { data: transactions, error: transactionsError, count } = await supabase
+      .from('transactions')
+      .select('*', { count: 'exact' })
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
+    if (transactionsError) {
+      throw transactionsError
+    }
     return {
       success: true,
       data: {
-        transactions,
-        totalPages: Math.ceil(total / limit),
+        transactions: transactions || [],
+        totalPages: Math.ceil((count || 0) / limit),
         currentPage: page,
-        total
+        total: count || 0
       }
     }
 

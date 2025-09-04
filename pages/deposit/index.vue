@@ -356,13 +356,13 @@
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 
 // Composables
-const { getUserId, isUserReady, getUserRole } = useProfile() // Added getUserRole for permission check
+const { getUserId, getUserRole } = useProfile()
+const { updatePresence } = useSupabaseRealtime()
 const { 
-  getUserAccounts, 
-  deposit, 
-  withdraw, 
+  getUserAccounts,
+  deposit,
+  withdraw,
   getTransactions,
-  calculateInterest,
   applyInterest
 } = useSavings()
 
@@ -383,13 +383,25 @@ const errorMessage = ref(null)
 const userReady = ref(false)
 const interestCalculationResults = ref(null)
 
+// Set user online in presence
+onMounted(async () => {
+  const userId = getUserId()
+  if (userId) {
+    await updatePresence('online')
+  }
+})
+
+// Set user offline in presence when component is unmounted
+onUnmounted(() => {
+  updatePresence('offline').catch(console.error)
+})
 // Computed
 const validationError = computed(() => {
   if (!amount.value || amount.value <= 0) return null
   
   if (transactionType.value === 'withdraw') {
-    const minBalance = typeof selectedAccount.value?.productId === 'object' 
-      ? selectedAccount.value.productId.minBalance || 0 
+    const minBalance = typeof selectedAccount.value?.product === 'object' 
+      ? selectedAccount.value.product.min_balance || 0 
       : 0
     
     if (selectedAccount.value && (selectedAccount.value.balance - amount.value) < minBalance) {
@@ -402,7 +414,7 @@ const validationError = computed(() => {
 
 // Check if user can manage interest (admin/manager role)
 const canManageInterest = computed(() => {
-  const userRole = getUserRole?.() || 'user'
+  const userRole = getUserRole() || 'user'
   return ['admin', 'manager', 'staff'].includes(userRole.toLowerCase())
 })
 
@@ -417,8 +429,8 @@ const loadAccounts = async () => {
       return
     }
     
-    const data = await getUserAccounts(userId)
-    accounts.value = data || []
+    const accountsData = await getUserAccounts(userId)
+    accounts.value = accountsData || []
     
     // Auto-select first active account
     if (accounts.value.length > 0) {
@@ -444,7 +456,7 @@ const loadTransactions = async () => {
   if (!selectedAccount.value) return
   
   try {
-    const data = await getTransactions(selectedAccount.value._id, 1, 10)
+    const data = await getTransactions(selectedAccount.value.id, 1, 10)
     transactions.value = data?.transactions || []
   } catch (error) {
     console.error('Error loading transactions:', error)
@@ -459,9 +471,9 @@ const submitTransaction = async () => {
     
     let result
     if (transactionType.value === 'deposit') {
-      result = await deposit(selectedAccount.value._id, amount.value, description.value)
+      result = await deposit(selectedAccount.value.id, amount.value, description.value)
     } else {
-      result = await withdraw(selectedAccount.value._id, amount.value, description.value)
+      result = await withdraw(selectedAccount.value.id, amount.value, description.value)
     }
     
     // Update account balance (assuming the API returns updated account info)
@@ -495,45 +507,20 @@ const submitTransaction = async () => {
   }
 }
 
-// Interest Management Methods
-const calculateInterestForAll = async () => {
-  try {
-    processingInterest.value = true
-    const result = await calculateInterest()
-    
-    interestCalculationResults.value = {
-      totalProcessed: result.totalProcessed || 0,
-      totalInterest: result.totalInterest || 0,
-      calculatedAt: new Date().toISOString()
-    }
-    
-    showInterestModal.value = true
-    
-    // Reload accounts to show updated information
-    await loadAccounts()
-    
-  } catch (error) {
-    console.error('Error calculating interest:', error)
-    errorMessage.value = 'Failed to calculate interest. Please try again.'
-  } finally {
-    processingInterest.value = false
-  }
-}
-
 const applyInterestToAccount = async () => {
   if (!selectedAccount.value) return
   
   try {
     processingInterest.value = true
-    const result = await applyInterest(selectedAccount.value._id)
+    const result = await applyInterest(selectedAccount.value.id)
     
     // Update account balance
-    selectedAccount.value.balance = result.newBalance || selectedAccount.value.balance
+    selectedAccount.value.balance = result.data?.balanceAfter || selectedAccount.value.balance
     
     // Store interest info for modal
     lastTransaction.value = {
       type: 'interest',
-      amount: result.interestAmount || 0
+      amount: result.data?.interestApplied || 0
     }
     
     // Reload transactions and accounts
@@ -553,8 +540,8 @@ const applyInterestToAccount = async () => {
 
 // Helper method to calculate estimated monthly interest
 const calculateMonthlyInterest = (account) => {
-  if (!account?.productId?.interestRate || !account.balance) return 0
-  const annualRate = account.productId.interestRate / 100
+  if (!account?.product?.interest_rate || !account.balance) return 0
+  const annualRate = account.product.interest_rate / 100
   const monthlyRate = annualRate / 12
   return account.balance * monthlyRate
 }
@@ -576,14 +563,9 @@ const formatDate = (date) => {
 
 // Watch for user readiness
 const initializeWhenReady = async () => {
-  // Check if isUserReady function exists, otherwise use a simple check
-  if (typeof isUserReady === 'function') {
-    userReady.value = isUserReady()
-  } else {
-    // Fallback: check if getUserId returns a valid ID
-    const userId = getUserId()
-    userReady.value = Boolean(userId && userId !== 'null' && userId !== null)
-  }
+  // Check if getUserId returns a valid ID
+  const userId = getUserId()
+  userReady.value = Boolean(userId && userId !== 'null' && userId !== null)
   
   if (userReady.value) {
     await loadAccounts()

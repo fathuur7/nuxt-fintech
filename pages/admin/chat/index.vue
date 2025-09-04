@@ -196,18 +196,18 @@ interface User {
 // Router and composables
 const router = useRouter()
 const { fetchUserData, getUserId } = useProfile()
-const { $socket } = useNuxtApp()
+const { getAllUsers } = useSupabaseProfile()
+const { subscribeToUserStatus, updatePresence, isConnected } = useSupabaseRealtime()
 
 // Reactive state
-const users = ref<User[]>([])
+const users = ref<any[]>([])
 const loading = ref(true)
-const socketConnected = ref(false)
 const lastUpdate = ref('')
 const autoRefresh = ref(true)
-const error = ref('')
 
 // Auto refresh interval
 let refreshInterval: NodeJS.Timeout | null = null
+let statusSubscription: any = null
 
 // Computed properties
 const onlineUsers = computed(() => users.value.filter(user => user.status === 'online').length)
@@ -270,25 +270,12 @@ const formatDate = (dateString: string) => {
 const fetchUsers = async () => {
   try {
     loading.value = true
-    error.value = ''
-    const { data } = await $fetch('/api/user/getUser')
-    users.value = (data || []).map((u: any) => ({
-      _id: String(u._id),
-      name: String(u.name),
-      email: String(u.email),
-      role: u.role === 'admin' ? 'admin' : 'user',
-      balance: Number(u.balance),
-      status: u.status === 'online' || u.status === 'idle' || u.status === 'offline' ? u.status : 'offline',
-      isActive: Boolean(u.isActive),
-      picture: String(u.picture),
-      createdAt: String(u.createdAt),
-      updatedAt: String(u.updatedAt)
-    })) as User[]
+    const usersData = await getAllUsers()
+    users.value = usersData || []
     lastUpdate.value = new Date().toLocaleTimeString('id-ID')
     console.log('📊 Fetched users:', users.value.length)
   } catch (err) {
     console.error('❌ Error fetching users:', err)
-    error.value = 'Failed to fetch users. Please try again.'
   } finally {
     loading.value = false
   }
@@ -310,8 +297,8 @@ const toggleAutoRefresh = () => {
 const startAutoRefresh = () => {
   if (refreshInterval) clearInterval(refreshInterval)
   refreshInterval = setInterval(() => {
-    if (!socketConnected.value) {
-      console.log('🔄 Auto refresh: Socket disconnected, fetching users...')
+    if (!isConnected.value) {
+      console.log('🔄 Auto refresh: Realtime disconnected, fetching users...')
       fetchUsers()
     }
   }, 10000) // Every 10 seconds
@@ -324,24 +311,14 @@ const stopAutoRefresh = () => {
   }
 }
 
-const updateUserStatus = (data: { 
-  userId: string
-  status?: 'online' | 'idle' | 'offline'
-  isActive?: boolean
-  timestamp?: string
-}) => {
-  const userIndex = users.value.findIndex(user => user._id === data.userId)
+const updateUserStatus = (payload: any) => {
+  const userData = payload.new
+  const userIndex = users.value.findIndex(user => user.id === userData.id)
+  
   if (userIndex !== -1) {
-    // Handle both status and isActive fields
-    if (data.status) {
-      users.value[userIndex].status = data.status
-    } else if (data.isActive !== undefined) {
-      users.value[userIndex].status = data.isActive ? 'online' : 'offline'
-    }
-    
-    users.value[userIndex].updatedAt = data.timestamp || new Date().toISOString()
+    users.value[userIndex] = { ...users.value[userIndex], ...userData }
     lastUpdate.value = new Date().toLocaleTimeString('id-ID')
-    console.log(`📊 Status updated: ${users.value[userIndex].name} is now ${users.value[userIndex].status}`)
+    console.log(`📊 Status updated: ${userData.username} is now ${userData.status}`)
   } else {
     // User not found in current list, refresh to get updated data
     console.log('👤 User not found in current list, refreshing...')
@@ -349,24 +326,26 @@ const updateUserStatus = (data: {
   }
 }
 
-const forceOfflineUser = (userId: string) => {
+const forceOfflineUser = async (userId: string) => {
   if (confirm('Apakah Anda yakin ingin memaksa user ini offline?')) {
-    const socket = $socket.get()
-    if (socket) {
-      socket.emit('force-user-offline', userId)
-      console.log(`🔴 Force offline request sent for user: ${userId}`)
+    try {
+      const { supabase } = useSupabase()
       
-      // Immediately update UI and refresh after a delay
-      setTimeout(() => {
-        fetchUsers()
-      }, 1000)
+      const { error } = await supabase
+        .from('users')
+        .update({
+          status: 'offline',
+          is_active: false,
+          last_seen: new Date().toISOString()
+        })
+        .eq('id', userId)
     }
   }
 }
 
 // Navigation functions
 const navigateToChat = (userId: string): void => {
-  router.push(`/admin/chat/${userId}`)
+  navigateTo(`/admin/chat/${userId}`)
 }
 
 const startChat = (userId: string): void => {
@@ -374,13 +353,13 @@ const startChat = (userId: string): void => {
 }
 
 const viewProfile = (userId: string): void => {
-  router.push(`/admin/users/${userId}`)
+  navigateTo(`/admin/users/${userId}`)
 }
 
-// Initialize admin socket connection
-const initializeAdminSocket = async () => {
+// Initialize admin realtime connection
+const initializeAdminRealtime = async () => {
   try {
-    // First, fetch current user data and set as online
+    // First, fetch current user data and set as online in presence
     await fetchUserData()
     
     const adminUserId = getUserId()
@@ -389,92 +368,20 @@ const initializeAdminSocket = async () => {
       return
     }
     
-    console.log('🔄 Initializing admin socket for user:', adminUserId)
+    console.log('🔄 Initializing admin realtime for user:', adminUserId)
     
-    // Set admin user as online
-    await $socket.setUserOnline(adminUserId)
+    // Set admin user as online in presence
+    await updatePresence('online')
     
-    // Get socket instance for admin-specific listeners
-    const socket = $socket.get()
+    // Subscribe to user status changes
+    statusSubscription = subscribeToUserStatus((payload) => {
+      console.log('📡 Received user status update:', payload)
+      updateUserStatus(payload)
+    })
     
-    if (socket) {
-      socketConnected.value = socket.connected
-      
-      // Listen for connection status changes
-      socket.on('connect', () => {
-        socketConnected.value = true
-        console.log('✅ Admin socket connected')
-        // Re-emit admin as active on reconnect
-        if (adminUserId) {
-          socket.emit('user-active', adminUserId)
-        }
-        // Refresh users when socket reconnects
-        fetchUsers()
-      })
-      
-      socket.on('disconnect', (reason) => {
-        socketConnected.value = false
-        console.log('❌ Admin socket disconnected:', reason)
-      })
-      
-      // Enhanced socket listeners with better error handling
-      socket.on('status-update', (data) => {
-        console.log('📡 Received status-update:', data)
-        updateUserStatus(data)
-      })
-      
-      socket.on('user-status-update', (data) => {
-        console.log('📡 Received user-status-update:', data)
-        updateUserStatus(data)
-      })
-      
-      socket.on('user-online', (data) => {
-        console.log('🟢 User came online:', data)
-        updateUserStatus({ 
-          userId: data.userId || data._id, 
-          status: 'online',
-          timestamp: data.timestamp
-        })
-      })
-      
-      socket.on('user-idle', (data) => {
-        console.log('🟡 User went idle:', data)
-        updateUserStatus({ 
-          userId: data.userId || data._id, 
-          status: 'idle',
-          timestamp: data.timestamp
-        })
-      })
-      
-      socket.on('user-offline', (data) => {
-        console.log('🔴 User went offline:', data)
-        updateUserStatus({ 
-          userId: data.userId || data._id, 
-          status: 'offline',
-          timestamp: data.timestamp
-        })
-      })
-
-      // Listen for force offline confirmation
-      socket.on('user-forced-offline', (data) => {
-        console.log('💥 User forced offline:', data)
-        updateUserStatus({ 
-          userId: data.userId || data._id, 
-          status: 'offline',
-          timestamp: data.timestamp
-        })
-      })
-      
-      // Generic status change listener
-      socket.on('status-changed', (data) => {
-        console.log('🔄 Status changed:', data)
-        updateUserStatus(data)
-      })
-      
-      console.log('✅ Admin socket listeners registered')
-    }
+    console.log('✅ Admin realtime subscription initialized')
   } catch (error) {
-    console.error('❌ Failed to initialize admin socket:', error)
+    console.error('❌ Failed to initialize admin realtime:', error)
   }
 }
 
@@ -485,9 +392,9 @@ onMounted(async () => {
   // Fetch users first
   await fetchUsers()
   
-  // Initialize socket connection for admin
-  if (process.client && $socket) {
-    await initializeAdminSocket()
+  // Initialize realtime connection for admin
+  if (process.client) {
+    await initializeAdminRealtime()
   }
   
   // Start auto refresh if enabled
@@ -502,27 +409,14 @@ onUnmounted(() => {
   // Stop auto refresh
   stopAutoRefresh()
   
-  // Remove socket listeners
-  if (process.client && $socket?.get()) {
-    const socket = $socket.get()
-    if (socket) {
-      socket.off('user-status-update')
-      socket.off('user-online')
-      socket.off('user-idle')
-      socket.off('user-offline')
-      socket.off('user-forced-offline')
-      socket.off('status-changed')
-      socket.off('status-update')
-      console.log('✅ Admin socket listeners removed')
-    }
+  // Unsubscribe from realtime
+  if (statusSubscription) {
+    statusSubscription.unsubscribe()
+    console.log('✅ Realtime subscription removed')
   }
   
-  // Set admin user offline
-  const adminUserId = getUserId()
-  if (adminUserId) {
-    $socket.setUserOffline(adminUserId)
-    console.log('🔴 Admin user set offline')
-  }
+  // Set admin user offline in presence
+  updatePresence('offline').catch(console.error)
 })
 
 // Page meta

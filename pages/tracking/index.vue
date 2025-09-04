@@ -275,8 +275,8 @@
 </template>
 
 <script setup >
-const { fetchUserData, getUserId } = useProfile();
-const { $socket } = useNuxtApp()
+const { fetchUserData, getUserId } = useProfile()
+const { updatePresence } = useSupabaseRealtime()
 
 // Reactive data
 const userAccounts = ref([])
@@ -489,18 +489,18 @@ onMounted(async () => {
   try {
     await fetchUserData()
     
-    // Set user online after data is fetched
+    // Set user online in presence after data is fetched
     const userId = getUserId()
     debugUserId.value = userId
     
     if (userId) {
-      console.log('🔄 Initializing socket for user:', userId)
-      await $socket.setUserOnline(userId)
+      console.log('🔄 Setting user online in presence:', userId)
+      await updatePresence('online')
       
       // Fetch user accounts on mount
       await fetchUserAccounts()
     } else {
-      console.error('❌ No user ID available for socket connection')
+      console.error('❌ No user ID available for presence')
       errorMessage.value = 'No user ID available after fetchUserData'
     }
   } catch (error) {
@@ -509,12 +509,9 @@ onMounted(async () => {
   }
 })
 
-// Set user offline when component is unmounted
+// Set user offline in presence when component is unmounted
 onUnmounted(() => {
-  const userId = getUserId()
-  if (userId) {
-    $socket.setUserOffline(userId)
-  }
+  updatePresence('offline').catch(console.error)
   
   // Clear auto refresh interval
   if (refreshInterval.value) {

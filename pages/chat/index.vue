@@ -22,13 +22,14 @@ interface AdminResponse {
 
 // Lakukan fetch data. `await` di sini akan membuat halaman tidak ditampilkan
 // sampai data selesai diambil (saat server-side rendering).
-const { data, error, pending } = await useFetch<AdminResponse>('/api/user/getAdmin')
+const { getAdminUsers } = useSupabaseProfile()
+const { data, error, pending } = await useLazyAsyncData('admin-users', () => getAdminUsers())
 
 // GUNAKAN `computed` UNTUK MEMBUAT VARIABEL `users` YANG REAKTIF
 const users = computed(() => {
   // Logika ini akan dijalankan ulang secara otomatis ketika `data.value` berubah
-  if (data.value && data.value.success && Array.isArray(data.value.data)) {
-    return data.value.data
+  if (data.value && Array.isArray(data.value)) {
+    return data.value
   }
   // Selalu kembalikan array kosong jika data tidak valid atau belum ada
   return []
@@ -39,7 +40,7 @@ const users = computed(() => {
 
 const router = useRouter()
 function navigateToChat(userId: string) {
-  router.push(`chat/${userId}`)
+  router.push(`/chat/${userId}`)
 }
 
 const { fetchUserData, getUserId } = useProfile();

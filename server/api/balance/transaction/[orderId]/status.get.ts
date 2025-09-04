@@ -1,6 +1,5 @@
 import midtransClient from 'midtrans-client'
-import { Transaction } from '~/server/models/Transaction'
-import { User } from '~/server/models/User'
+import { supabase } from '~/lib/supabase'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -25,8 +24,11 @@ export default defineEventHandler(async (event) => {
     const statusResponse = await core.transaction.status(orderId)
     
     // Update status in database
-    const transaction = await Transaction.findOne({ orderId })
-    if (transaction) {
+    const { data: transaction, error: transactionError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('order_id', orderId)
+      .single()
       let transactionStatus = 'pending'
       
       if (statusResponse.transaction_status === 'capture') {
@@ -44,15 +46,26 @@ export default defineEventHandler(async (event) => {
       }
 
       if (transaction.status !== transactionStatus) {
-        transaction.status = transactionStatus
-        await transaction.save()
+        const { error: updateError } = await supabase
+          .from('transactions')
+          .update({
+            status: transactionStatus,
+            transaction_id: statusResponse.transaction_id,
+            payment_type: statusResponse.payment_type
+          })
+          .eq('order_id', orderId)
 
+        if (updateError) {
+          console.error('Error updating transaction:', updateError)
+        }
         // Update balance if successful
         if (transactionStatus === 'success') {
-          await User.findByIdAndUpdate(
-            transaction.userId,
-            { $inc: { balance: transaction.amount } }
-          )
+          const { error: balanceError } = await supabase
+            .from('users')
+            .update({
+              balance: supabase.sql`balance + ${transaction.amount}`
+            })
+            .eq('id', transaction.user_id)
         }
       }
     }

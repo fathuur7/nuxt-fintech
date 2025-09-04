@@ -82,7 +82,7 @@
 
             <!-- Animated Google Login Button -->
             <button
-              @click="loginWithGoogle"
+              @click="handleGoogleLogin"
               class="relative w-full bg-white hover:bg-gray-50 text-gray-800 font-semibold py-4 px-6 rounded-2xl flex items-center justify-center space-x-3 transition-all duration-300 transform hover:scale-105 shadow-lg group overflow-hidden"
             >
               <!-- Button shine effect -->
@@ -133,9 +133,16 @@
 </template>
 
 <script setup>
-import { useAuth } from '@/composables/useAuth'
-
 const { loginWithGoogle } = useAuth()
+
+const handleGoogleLogin = async () => {
+  try {
+    await loginWithGoogle()
+  } catch (error) {
+    console.error('Login failed:', error)
+    // You can add toast notification here
+  }
+}
 
 definePageMeta({
   layout: false,

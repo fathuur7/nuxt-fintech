@@ -1,67 +1,84 @@
-import jwt from 'jsonwebtoken'
-import { User } from '@/server/models/User'
-import { connectDB } from '@/server/utils/mongoose'
+import { supabase } from '~/lib/supabase'
 
 export default defineEventHandler(async (event) => {
   try {
-    const config = useRuntimeConfig()
-    const token = getCookie(event, 'token')
+    // Get the authorization header
+    const authHeader = getHeader(event, 'authorization')
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Authorization required'
+      })
+    }
 
-    if (!token) throw new Error('Unauthorized')
+    const token = authHeader.substring(7)
 
-    const decoded = jwt.verify(token, config.jwtSecret) as any
+    // Verify token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Invalid token'
+      })
+    }
 
-    if (decoded.role !== 'admin') throw new Error('Forbidden')
+    // Check if user is admin
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
 
-    await connectDB()
+    if (profileError || userProfile?.role !== 'admin') {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Admin access required'
+      })
+    }
     
     // Fetch all users
-    const users = await User.find({}).lean()
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false })
     
-    // Transform data to ensure consistency between isActive and status fields
-    const transformedUsers = await Promise.all(users.map(async user => {
-      // Determine status based on isActive and other factors
-      let status = 'offline'
+    if (usersError) {
+      throw usersError
+    }
+    
+    // Transform data for backward compatibility
+    const transformedUsers = (users || []).map(user => {
+      // Determine status based on is_active and last_seen
+      let status = user.status || 'offline'
       
-      if (user.isActive) {
-        // Check if user has a specific status field, otherwise default to 'online'
-        status = user.status || 'online'
-      } else {
-        status = 'offline'
-      }
-      
-      // Check if user should be considered idle based on lastSeen
-      if (user.isActive && user.lastSeen) {
-        const timeSinceLastSeen = Date.now() - new Date(user.lastSeen).getTime()
+      if (user.last_seen) {
+        const timeSinceLastSeen = Date.now() - new Date(user.last_seen).getTime()
         const idleThreshold = 5 * 60 * 1000 // 5 minutes
         
-        if (timeSinceLastSeen > idleThreshold && timeSinceLastSeen < 30 * 60 * 1000) { // Less than 30 minutes
+        if (timeSinceLastSeen > idleThreshold && timeSinceLastSeen < 30 * 60 * 1000) {
           status = 'idle'
-        } else if (timeSinceLastSeen >= 30 * 60 * 1000) { // More than 30 minutes
+        } else if (timeSinceLastSeen >= 30 * 60 * 1000) {
           status = 'offline'
-          // Update database to reflect true offline status
-          await User.findByIdAndUpdate(user._id, { 
-            isActive: false, 
-            status: 'offline' 
-          })
         }
       }
       
       return {
-        _id: user._id,
-        id: user._id,
-        name: user.name,
+        _id: user.id, // For backward compatibility
+        id: user.id,
+        name: user.username,
         email: user.email,
         role: user.role || 'user',
         balance: user.balance || 0,
         status: status,
-        picture: user.picture || '',
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt || user.lastSeen || user.createdAt,
-        isActive: user.isActive || false,
-        lastSeen: user.lastSeen
+        picture: user.avatar_url || '',
+        createdAt: user.created_at,
+        updatedAt: user.created_at,
+        isActive: user.is_active || false,
+        lastSeen: user.last_seen
       }
-    }))
+    })
     
     return {
       success: true,
@@ -72,9 +89,13 @@ export default defineEventHandler(async (event) => {
   } catch (error) {
     console.error('❌ Error fetching users:', error)
     
+    if (typeof error === 'object' && error !== null && 'statusCode' in error) {
+      throw error
+    }
+    
     return {
       success: false,
-      error: 'Failed to fetch users',
+      error: error instanceof Error ? error.message : 'Failed to fetch users',
       data: []
     }
   }

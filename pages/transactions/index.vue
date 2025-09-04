@@ -283,8 +283,8 @@ import { useRoute } from 'vue-router'
 const route = useRoute();
 
 // Composables
-const { fetchUserData, getUserId } = useProfile();
-const { $socket } = useNuxtApp()
+const { fetchUserData, getUserId } = useProfile()
+const { updatePresence } = useSupabaseRealtime()
 
 // Reactive data
 const transactions = ref<Transaction[]>([])
@@ -513,5 +513,18 @@ const getStatusClass = (status: string): string => {
 // Initialize data when component is mounted
 onMounted(() => {
   initializeData()
+})
+
+// Set user online in presence
+onMounted(async () => {
+  const userId = getUserId()
+  if (userId) {
+    await updatePresence('online')
+  }
+})
+
+// Set user offline in presence when component is unmounted
+onUnmounted(() => {
+  updatePresence('offline').catch(console.error)
 })
 </script>

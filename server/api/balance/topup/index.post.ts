@@ -1,6 +1,5 @@
 import midtransClient from 'midtrans-client'
-import { User } from '@/server/models/User'
-import { Transaction } from '@/server/models/Transaction'
+import { supabase } from '~/lib/supabase'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -31,8 +30,11 @@ export default defineEventHandler(async (event) => {
     }
 
     // Check if user exists
-    const user = await User.findById(userId)
-    if (!user) {
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, username, email, balance')
+      .eq('id', userId)
+      .single()
       throw createError({
         statusCode: 404,
         statusMessage: 'User not found'
@@ -59,9 +61,9 @@ export default defineEventHandler(async (event) => {
         secure: true
       },
       customer_details: {
-        first_name: userName || user.fullName || user.name || 'Customer',
+        first_name: userName || user.username || 'Customer',
         email: userEmail || user.email,
-        phone: user.phone || undefined
+        phone: undefined
       },
       item_details: [{
         id: 'balance_topup',
@@ -81,19 +83,24 @@ export default defineEventHandler(async (event) => {
     const transaction = await snap.createTransaction(parameter)
 
     // Save transaction to database with pending status
-    const newTransaction = new Transaction({
-      userId,
-      orderId,
-      amount,
-      status: 'pending',
-      type: 'topup',
-      snapToken: transaction.token,
-      snapRedirectUrl: transaction.redirect_url,
-      createdAt: new Date(),
-      expiryTime: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes from now
-    })
+    const { data: newTransaction, error: transactionError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: userId,
+        order_id: orderId,
+        amount,
+        status: 'pending',
+        type: 'topup',
+        snap_token: transaction.token,
+        snap_redirect_url: transaction.redirect_url,
+        expiry_time: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+      })
+      .select()
+      .single()
 
-    await newTransaction.save()
+    if (transactionError) {
+      throw transactionError
+    }
 
     return {
       success: true,
@@ -102,7 +109,7 @@ export default defineEventHandler(async (event) => {
         orderId,
         snapToken: transaction.token,
         snapRedirectUrl: transaction.redirect_url,
-        expiryTime: newTransaction.expiryTime
+        expiryTime: newTransaction.expiry_time
       }
     }
 

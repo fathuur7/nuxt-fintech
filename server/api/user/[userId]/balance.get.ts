@@ -1,5 +1,4 @@
-// get api/user/:userId/balance
-import { User } from '~/server/models/User'
+import { supabase } from '~/lib/supabase'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -13,9 +12,13 @@ export default defineEventHandler(async (event) => {
     }
 
     // Find user and get current balance
-    const user = await User.findById(userId).select('balance name email')
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, username, email, balance')
+      .eq('id', userId)
+      .single()
 
-    if (!user) {
+    if (error || !user) {
       throw createError({
         statusCode: 404,
         statusMessage: 'User not found'
@@ -26,8 +29,8 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: 'User balance retrieved successfully',
       data: {
-        userId: user._id,
-        name: user.name,
+        userId: user.id,
+        name: user.username,
         email: user.email,
         balance: user.balance || 0
       }
@@ -36,15 +39,13 @@ export default defineEventHandler(async (event) => {
   } catch (error) {
     console.error('Error getting user balance:', error)
     
-    if (typeof error === 'object' && error !== null && 'statusCode' in (error as any)) {
+    if (typeof error === 'object' && error !== null && 'statusCode' in error) {
       throw error
     }
 
     throw createError({
       statusCode: 500,
-      statusMessage: typeof error === 'object' && error !== null && 'message' in error
-        ? (error as { message?: string }).message || 'Internal server error'
-        : 'Internal server error'
+      statusMessage: error instanceof Error ? error.message : 'Internal server error'
     })
   }
 })

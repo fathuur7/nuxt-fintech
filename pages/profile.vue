@@ -295,9 +295,8 @@ const getInitials: GetInitials = (name: string): string => {
 const handleImageError = () => {
   imageError.value = true
 }
-const { fetchUserData, getUserId } = useProfile();
-const { $socket } = useNuxtApp()
-// Login dan set online
+const { fetchUserData, getUserId } = useProfile()
+const { updatePresence } = useSupabaseRealtime()
 onMounted(async () => {
   await fetchUserData()
   

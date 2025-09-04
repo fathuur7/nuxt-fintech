@@ -1,6 +1,5 @@
 import crypto from 'crypto'
-import { Transaction } from '~/server/models/Transaction'
-import { User } from '~/server/models/User'
+import { supabase } from '~/lib/supabase'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -26,8 +25,11 @@ export default defineEventHandler(async (event) => {
     }
 
     // Find transaction in database
-    const transaction = await Transaction.findOne({ orderId })
-    if (!transaction) {
+    const { data: transaction, error: transactionError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('order_id', orderId)
+      .single()
       throw createError({
         statusCode: 404,
         statusMessage: 'Transaction not found'
@@ -54,17 +56,26 @@ export default defineEventHandler(async (event) => {
     }
 
     // Update transaction
-    transaction.status = transactionStatus
-    transaction.transactionId = notification.transaction_id
-    transaction.paymentType = notification.payment_type
-    await transaction.save()
+    const { error: updateError } = await supabase
+      .from('transactions')
+      .update({
+        status: transactionStatus,
+        transaction_id: notification.transaction_id,
+        payment_type: notification.payment_type
+      })
+      .eq('order_id', orderId)
 
+    if (updateError) {
+      throw updateError
+    }
     // If transaction successful, update user balance
     if (transactionStatus === 'success') {
-      await User.findByIdAndUpdate(
-        transaction.userId,
-        { $inc: { balance: transaction.amount } }
-      )
+      const { error: balanceError } = await supabase
+        .from('users')
+        .update({
+          balance: supabase.sql`balance + ${transaction.amount}`
+        })
+        .eq('id', transaction.user_id)
     }
 
     return {

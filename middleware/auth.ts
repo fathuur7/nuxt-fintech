@@ -1,14 +1,25 @@
-export default defineNuxtRouteMiddleware((to, from) => {
-  const token = useCookie('token').value; // sesuaikan dengan sistem auth kamu
-  const role = useCookie('role').value;   // misalnya role disimpan dalam cookie
+export default defineNuxtRouteMiddleware(async (to, from) => {
+  const { user, session, getSession } = useSupabaseAuth()
+  
+  // Get current session if not already loaded
+  if (!session.value) {
+    await getSession()
+  }
 
-  // Jika tidak login, arahkan ke halaman login
-  if (!token) {
-    return navigateTo('/auth/login');
+  // If not authenticated, redirect to login
+  if (!session.value || !user.value) {
+    return navigateTo('/auth/login')
   }
-  // Jika role tidak sesuai, jika user masuk ke http:localhost:3001/admin maka akan diarahkan ke halaman admin
-  if (to.path.startsWith('/admin') && role !== 'admin') {
-    console.log(role)
-    return navigateTo('/'); // arahkan ke halaman utama jika bukan admin
+
+  // Check admin routes
+  if (to.path.startsWith('/admin')) {
+    // Get user profile to check role
+    const { fetchUserProfile } = useSupabaseProfile()
+    const userProfile = await fetchUserProfile(user.value.id)
+    
+    if (!userProfile || userProfile.role !== 'admin') {
+      console.log('User role:', userProfile?.role)
+      return navigateTo('/') // redirect to home if not admin
+    }
   }
-});
+})

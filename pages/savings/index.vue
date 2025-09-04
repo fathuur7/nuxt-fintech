@@ -324,39 +324,31 @@ useHead({
     { name: 'description', content: 'Pilih produk tabungan yang sesuai dengan kebutuhan finansial Anda dengan bunga kompetitif dan layanan terbaik' }
   ]
 })
-const { $socket } = useNuxtApp()
-// Get user profile - pastikan composable ini tersedia
-const {getUserId , fetchUserData} = useProfile()
+const { getUserId, fetchUserData } = useProfile()
+const { updatePresence } = useSupabaseRealtime()
 
-// Login dan set online
+// Set user online in presence
 onMounted(async () => {
   await fetchUserData()
   
-  // Set user online after data is fetched
+  // Set user online in presence after data is fetched
   const userId = getUserId()
   if (userId) {
-    console.log('🔄 Initializing socket for user:', userId)
-    await $socket.setUserOnline(userId)
+    console.log('🔄 Setting user online in presence:', userId)
+    await updatePresence('online')
   } else {
-    console.error('❌ No user ID available for socket connection')
+    console.error('❌ No user ID available for presence')
   }
 })
 
-// Set user offline when component is unmounted
+// Set user offline in presence when component is unmounted
 onUnmounted(() => {
-  const userId = getUserId()
-  if (userId) {
-    $socket.setUserOffline(userId)
-  }
+  updatePresence('offline').catch(console.error)
 })
-// untuk data api producy ambil dari api/savings/products
-// const { data, pending, error } = await useFetch('/api/savings/products')
 
-
-// const refresh = () => {
-//   console.log('Refreshing data...')
-// }
-
+// Fetch savings products from Supabase
+const { getSavingsProducts } = useSupabaseSavings()
+const { data, pending, error, refresh } = await useLazyAsyncData('savings-products', () => getSavingsProducts())
 // Modal state - pastikan semua reactive variables didefinisikan dengan benar
 const showModal = ref(false)
 const selectedProduct = ref(null)
@@ -364,13 +356,10 @@ const initialDeposit = ref(null)
 const agreeToTerms = ref(false)
 const isSubmitting = ref(false)
 
-// Extract products from response
-const { data, error } = await useFetch('/api/savings/products')
-
 const products = computed(() => {
-  if (data.value && data.value.success && data.value.data) {
-    console.log('Products loaded:', data.value.data.length)
-    return data.value.data
+  if (data.value) {
+    console.log('Products loaded:', data.value.length)
+    return data.value
   }
   return []
 })
@@ -469,20 +458,12 @@ const submitAccountOpening = async () => {
     isSubmitting.value = true
     console.log('Submitting account opening...')
 
-    const body = {
-      userId: getUserId(), // pastikan ini ada
+    const { createSavingsAccount } = useSupabaseSavings()
+    
+    const result = await createSavingsAccount(
       productId: selectedProduct.value._id,
-      initialDeposit: parseFloat(initialDeposit.value || 0),
-    }
-
-    const { data, error } = await useFetch('/api/savings/accounts', {
-      method: 'POST',
-      body,
-    })
-
-    if (error.value) {
-      throw new Error(error.value.data?.statusMessage || 'Terjadi kesalahan saat membuka rekening.')
-    }
+      parseFloat(initialDeposit.value || 0)
+    )
 
     // Tampilkan notifikasi berhasil (gunakan toast kalau ada)
     notification.success(`🎉 Rekening ${selectedProduct.value.name} berhasil dibuka!`)
@@ -492,7 +473,7 @@ const submitAccountOpening = async () => {
 
   } catch (error) {
     console.error('Error opening account:', error)
-    alert(`❌ Terjadi kesalahan: ${error.message}`)
+    notification.error(`❌ Terjadi kesalahan: ${error.message}`)
   } finally {
     isSubmitting.value = false
   }

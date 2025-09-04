@@ -1,5 +1,4 @@
-import { Message } from '@/server/models/Message'
-import mongoose from 'mongoose' 
+import { supabase } from '~/lib/supabase'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -15,33 +14,36 @@ export default defineEventHandler(async (event) => {
 
     const pageNum = Number(page) || 1
     const limitNum = Number(limit) || 50
-    const skip = (pageNum - 1) * limitNum
+    const offset = (pageNum - 1) * limitNum
 
-    const messages = await Message.find({
-      $or: [
-        { senderId, receiverId },
-        { senderId: receiverId, receiverId: senderId }
-      ]
-    })
-    .populate('senderId', 'name email avatar')
-    .populate('receiverId', 'name email avatar')
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(parseInt(String(limit)))
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        sender:users!sender_id(id, username, email, avatar_url),
+        receiver:users!receiver_id(id, username, email, avatar_url)
+      `)
+      .or(`and(sender_id.eq.${senderId},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${senderId})`)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limitNum - 1)
 
+    if (error) {
+      throw error
+    }
     return {
       success: true,
-      data: messages.reverse(), // Reverse to show oldest first
+      data: (messages || []).reverse(), // Reverse to show oldest first
       pagination: {
-        page: parseInt(String(page)),
-        limit: parseInt(String(limit)),
-        hasMore: messages.length === parseInt(String(limit))
+        page: pageNum,
+        limit: limitNum,
+        hasMore: (messages || []).length === limitNum
       }
     }
   } catch (error) {
+    console.error('Error fetching messages:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: typeof error === 'object' && error !== null && 'message' in error ? (error as any).message : 'Internal Server Error'
+      statusMessage: error instanceof Error ? error.message : 'Internal Server Error'
     })
   }
 })

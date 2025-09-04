@@ -1,23 +1,10 @@
-// composables/useChat.ts
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-
-interface Message {
-  _id: string
-  senderId: string | { _id: string; name: string; email: string }
-  receiverId: string | { _id: string; name: string; email: string }
-  content: string
-  createdAt?: string
-  status?: 'sent' | 'delivered' | 'read'
-  messageType?: string
-  isRead?: boolean
-}
-
+import type { Database } from '~/lib/supabase'
+type Message = Database['public']['Tables']['messages']['Row']
 interface ChatUser {
   id: string
-  name?: string
+  username?: string
   email?: string
 }
-
 export const useChat = (targetUserId: string) => {
   // State
   const messages = ref<Message[]>([])
@@ -27,14 +14,11 @@ export const useChat = (targetUserId: string) => {
   const currentUser = ref<ChatUser | null>(null)
   
   // Composables
-  const { $socket } = useNuxtApp()
-  const { fetchUserData, getUserId } = useProfile()
+  const { getCurrentUserId } = useSupabaseAuth()
+  const { sendMessage: sendSupabaseMessage, getMessages, subscribeToMessages } = useSupabaseMessages()
+  const { updatePresence } = useSupabaseRealtime()
   
-  // Helper function to extract ID from user object
-  const extractUserId = (user: string | { _id: string }): string => {
-    if (typeof user === 'string') return user
-    return user._id
-  }
+  let messageSubscription: any = null
   
   // Computed
   const conversationId = computed(() => {
@@ -50,8 +34,7 @@ export const useChat = (targetUserId: string) => {
       error.value = null
       
       // Get current user
-      await fetchUserData()
-      const userId = getUserId()
+      const userId = getCurrentUserId()
       
       if (!userId) {
         throw new Error('User not authenticated')
@@ -62,10 +45,12 @@ export const useChat = (targetUserId: string) => {
       // Load existing messages
       await loadMessages()
       
-      // Setup socket connection
-      if ($socket) {
-        await setupSocketConnection(userId)
-      }
+      // Setup realtime subscription
+      setupRealtimeSubscription()
+      
+      // Set user online
+      await updatePresence('online')
+      isConnected.value = true
       
     } catch (err) {
       console.error('Failed to initialize chat:', err)
@@ -75,33 +60,16 @@ export const useChat = (targetUserId: string) => {
     }
   }
   
-  // Load messages from API
+  // Load messages from Supabase
   const loadMessages = async () => {
     if (!currentUser.value?.id || !targetUserId) return
     
     try {
-      const response = await $fetch<{ data: Message[] }>('/api/message', {
-        method: 'GET',
-        params: {
-          senderId: currentUser.value.id,
-          receiverId: targetUserId
-        }
-      })
+      const messageData = await getMessages(targetUserId)
       
-      console.log('📥 Messages loaded:', response)
-      
-      if (response && response.data) {
-        // Normalize message format and sort by date
-        const normalizedMessages = response.data.map(msg => ({
-          ...msg,
-          senderId: extractUserId(msg.senderId),
-          receiverId: extractUserId(msg.receiverId)
-        })).sort((a, b) => 
-          new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
-        )
-        
-        messages.value = normalizedMessages
-        console.log('📝 Normalized messages:', normalizedMessages)
+      if (messageData) {
+        messages.value = messageData
+        console.log('📝 Messages loaded:', messageData.length)
       }
     } catch (err) {
       console.error('Failed to load messages:', err)
@@ -109,124 +77,25 @@ export const useChat = (targetUserId: string) => {
     }
   }
   
-  // Setup socket connection
-  const setupSocketConnection = async (userId: string) => {
-    if (!$socket) {
-      console.error('Socket not available')
-      return
-    }
+  // Setup realtime subscription
+  const setupRealtimeSubscription = () => {
+    if (!currentUser.value?.id) return
     
-    try {
-      // Set user online
-      const connected = await $socket.setUserOnline(userId)
+    messageSubscription = subscribeToMessages(targetUserId, (message) => {
+      console.log('📨 New message received via realtime:', message)
       
-      if (connected) {
-        isConnected.value = true
-        
-        // Join conversation room
-        const roomName = `chat_${[userId, targetUserId].sort().join('_')}`
-        $socket.emit('join_conversation', {
-          senderId: userId,
-          receiverId: targetUserId,
-          room: roomName
-        })
-        
-        // Also join individual rooms
-        $socket.emit('join_room', `user_${userId}`)
-        $socket.emit('join_room', `user_${targetUserId}`)
-        
-        // Setup event listeners
-        setupSocketListeners()
-        
-        console.log('✅ Chat socket connected, joined room:', roomName)
-      } else {
-        throw new Error('Failed to connect socket')
+      // Add message to local state if not already present
+      const existingMessage = messages.value.find(msg => msg.id === message.id)
+      if (!existingMessage) {
+        messages.value.push(message)
+        messages.value.sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+        console.log('📝 Message added to conversation')
       }
-    } catch (err) {
-      console.error('Socket connection failed:', err)
-      isConnected.value = false
-      error.value = 'Connection failed'
-    }
-  }
-  
-  // Setup socket event listeners
-  const setupSocketListeners = () => {
-    if (!$socket) return
+    })
     
-    // Clean up existing listeners first
-    $socket.off('new_message')
-    $socket.off('message_sent')
-    $socket.off('message_error')
-    $socket.off('conversation_joined')
-    $socket.off('message_received')
-    
-    // Listen for new messages
-    $socket.on('new_message', handleNewMessage)
-    $socket.on('message_received', handleNewMessage) // Alternative event name
-    $socket.on('message_sent', handleMessageSent)
-    $socket.on('message_error', handleMessageError)
-    $socket.on('conversation_joined', handleConversationJoined)
-    
-    console.log('🎧 Socket listeners setup complete')
-  }
-  
-  // Socket event handlers
-  const handleNewMessage = (data: any) => {
-    console.log('📨 New message received:', data)
-    
-    try {
-      let message = data.message || data
-      
-      // Normalize the message format
-      const normalizedMessage = {
-        ...message,
-        senderId: extractUserId(message.senderId || message.userId),
-        receiverId: extractUserId(message.receiverId || message.toUserId)
-      }
-      
-      // Check if message belongs to current conversation
-      const isForCurrentConversation = 
-        (normalizedMessage.senderId === targetUserId && normalizedMessage.receiverId === currentUser.value?.id) ||
-        (normalizedMessage.senderId === currentUser.value?.id && normalizedMessage.receiverId === targetUserId)
-      
-      if (isForCurrentConversation) {
-        // Avoid duplicates
-        const existingMessage = messages.value.find(msg => msg._id === normalizedMessage._id)
-        if (!existingMessage) {
-          messages.value.push(normalizedMessage)
-          messages.value.sort((a, b) => 
-            new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
-          )
-          console.log('📝 Message added to conversation')
-        } else {
-          console.log('📝 Duplicate message ignored')
-        }
-      } else {
-        console.log('📝 Message not for current conversation')
-      }
-    } catch (err) {
-      console.error('Error handling new message:', err)
-    }
-  }
-  
-  const handleMessageSent = (data: any) => {
-    console.log('✅ Message sent successfully:', data)
-    // Update message status if needed
-    if (data.messageId) {
-      const messageIndex = messages.value.findIndex(msg => msg._id === data.messageId)
-      if (messageIndex !== -1) {
-        messages.value[messageIndex].status = 'sent'
-      }
-    }
-  }
-  
-  const handleMessageError = (data: any) => {
-    console.error('❌ Message error:', data)
-    error.value = data.error || 'Failed to send message'
-  }
-  
-  const handleConversationJoined = (data: any) => {
-    console.log('👥 Joined conversation:', data)
+    console.log('🎧 Realtime subscription setup complete')
   }
   
   // Send message
@@ -246,51 +115,14 @@ export const useChat = (targetUserId: string) => {
         content: content.trim()
       })
       
-      // Send via API first
-      const response = await $fetch<{ success: boolean; data: Message }>('/api/message', {
-        method: 'POST',
-        body: {
-          senderId: currentUser.value.id,
-          receiverId: targetUserId,
-          content: content.trim()
-        }
-      })
+      // Send via Supabase
+      const message = await sendSupabaseMessage(targetUserId, content.trim())
       
-      console.log('📤 API response:', response)
-      
-      if (response?.success && response.data) {
-        // Normalize the message format
-        const normalizedMessage = {
-          ...response.data,
-          senderId: extractUserId(response.data.senderId),
-          receiverId: extractUserId(response.data.receiverId)
-        }
-        
-        // Add to local messages if not already present
-        const existingMessage = messages.value.find(msg => msg._id === normalizedMessage._id)
-        if (!existingMessage) {
-          messages.value.push(normalizedMessage)
-          messages.value.sort((a, b) => 
-            new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
-          )
-        }
-        
-        // Send via socket for real-time updates to other users
-        if ($socket && isConnected.value) {
-          const socketData = {
-            senderId: currentUser.value.id,
-            receiverId: targetUserId,
-            content: content.trim(),
-            message: normalizedMessage
-          }
-          
-          $socket.emit('send_message', socketData)
-          console.log('📡 Message sent via socket:', socketData)
-        }
-        
+      if (message) {
+        console.log('📤 Message sent successfully:', message)
         return true
       } else {
-        console.error('API response indicates failure')
+        console.error('Failed to send message')
         return false
       }
       
@@ -301,33 +133,20 @@ export const useChat = (targetUserId: string) => {
     }
   }
   
-  // Cleanup socket connection
+  // Cleanup realtime subscription
   const cleanup = () => {
-    if (!$socket || !currentUser.value?.id) return
+    if (!currentUser.value?.id) return
     
     console.log('🧹 Cleaning up chat connection')
     
-    // Remove event listeners
-    $socket.off('new_message', handleNewMessage)
-    $socket.off('message_received', handleNewMessage)
-    $socket.off('message_sent', handleMessageSent)
-    $socket.off('message_error', handleMessageError)
-    $socket.off('conversation_joined', handleConversationJoined)
-    
-    // Leave conversation room
-    const roomName = `chat_${[currentUser.value.id, targetUserId].sort().join('_')}`
-    $socket.emit('leave_conversation', {
-      senderId: currentUser.value.id,
-      receiverId: targetUserId,
-      room: roomName
-    })
-    
-    // Leave individual rooms
-    $socket.emit('leave_room', `user_${currentUser.value.id}`)
-    $socket.emit('leave_room', `user_${targetUserId}`)
+    // Unsubscribe from realtime
+    if (messageSubscription) {
+      messageSubscription.unsubscribe()
+      messageSubscription = null
+    }
     
     // Set user offline
-    $socket.setUserOffline(currentUser.value.id)
+    updatePresence('offline').catch(console.error)
     
     isConnected.value = false
   }
@@ -340,13 +159,6 @@ export const useChat = (targetUserId: string) => {
       initializeChat()
     }, 1000)
   }
-  
-  // Watch for socket connection changes
-  watch(() => $socket?.isConnected?.(), (connected) => {
-    if (connected !== undefined) {
-      isConnected.value = connected
-    }
-  })
   
   // Lifecycle management
   onMounted(() => {

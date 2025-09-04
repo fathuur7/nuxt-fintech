@@ -1,21 +1,26 @@
-import { connectDB} from '@/server/utils/mongoose'
-import { User } from '@/server/models/User'
+import { supabase } from '~/lib/supabase'
 
 export default defineEventHandler(async (event) => {
   try {
-    await connectDB()
+    const { data: adminUsers, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('role', 'admin')
+      .order('created_at', { ascending: false })
 
-    const adminUsers = await User.find({ role: 'admin' })
+    if (error) {
+      throw error
+    }
 
     return {
       success: true,
-      data: adminUsers
+      data: adminUsers || []
     }
   } catch (error) {
     console.error('Failed to fetch admin users:', error)
-    return sendError(event, createError({
+    throw createError({
       statusCode: 500,
-      statusMessage: 'Internal Server Error',
-    }))
+      statusMessage: 'Internal Server Error'
+    })
   }
 })
