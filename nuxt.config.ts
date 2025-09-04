@@ -6,6 +6,18 @@ export default defineNuxtConfig({
   // SSR Configuration
   ssr: true,
   
+  // Head configuration for CSP
+  app: {
+    head: {
+      meta: [
+        {
+          'http-equiv': 'Content-Security-Policy',
+          content: "script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'self';"
+        }
+      ]
+    }
+  },
+  
   // Nitro configuration
   nitro: {
     experimental: {
